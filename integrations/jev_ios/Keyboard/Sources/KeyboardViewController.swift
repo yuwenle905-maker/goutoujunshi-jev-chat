@@ -1,7 +1,7 @@
 import UIKit
 import ReplayKit
 
-/// Offline typing plus user-invoked relationship advice; it never sends a chat message.
+/// Offline typing plus user-invoked advice. Return is dispatched only on an explicit key press.
 @MainActor
 final class KeyboardViewController: UIInputViewController {
     private enum Mode { case idle, screenshot, review, loading, result, details, insertConfirmation, gate }
@@ -67,7 +67,7 @@ final class KeyboardViewController: UIInputViewController {
         for item in [header, scroll, reviewBar, footer, typingView] { view.addSubview(item); item.translatesAutoresizingMaskIntoConstraints = false }
         reviewBarHeight = reviewBar.heightAnchor.constraint(equalToConstant: 0); reviewBarHeight.isActive = true
         scroll.addSubview(content); content.translatesAutoresizingMaskIntoConstraints = false
-        height = view.heightAnchor.constraint(equalToConstant: 326)
+        height = view.heightAnchor.constraint(equalToConstant: 334)
         height?.priority = .init(999)
         height?.isActive = true
         NSLayoutConstraint.activate([
@@ -92,8 +92,8 @@ final class KeyboardViewController: UIInputViewController {
         ])
         typingConstraints = [
             typingView.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 6),
-            typingView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),
-            typingView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6),
+            typingView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 3),
+            typingView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -3),
             typingView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -6)
         ]
         NSLayoutConstraint.activate(typingConstraints)
@@ -102,6 +102,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         isKeyboardVisible = true
+        typingView.updateReturnKey(textDocumentProxy.returnKeyType ?? .default)
         do {
             documentID = textDocumentProxy.documentIdentifier
             showTyping = true
@@ -118,7 +119,7 @@ final class KeyboardViewController: UIInputViewController {
             if let handoff = store?.takeHandoff() {
                 transcript = handoff.transcript; advice = handoff.advice; confirmed = false
                 mode = .result
-                showTyping = false
+                // Keep the handoff available under 军师 without taking over typing.
                 notice = "主 App 的本轮结果已取用；填入前请核对当前收件人。"
             } else if let request = store?.captureMailbox.request() {
                 mode = .screenshot; showTyping = false
@@ -128,7 +129,7 @@ final class KeyboardViewController: UIInputViewController {
                 persistedSession = saved
                 transcript = saved.transcript; advice = saved.advice; confirmed = false
                 mode = advice == nil ? .review : .result
-                showTyping = false
+                // Restoring a review must not make it the default keyboard page.
                 notice = "已恢复本轮内容（暂存 5 分钟）；请重新核对原文、双方身份与当前收件人。"
             } else { mode = .idle; notice = "" }
             receiveCapture()
@@ -187,7 +188,7 @@ final class KeyboardViewController: UIInputViewController {
         let screen = view.window?.windowScene?.coordinateSpace.bounds ?? CGRect(x: 0, y: 0, width: 390, height: 844)
         let compact = screen.width > screen.height
         typingView.setCompactLayout(compact)
-        let desired = showTyping ? (compact ? 244.0 : 326.0) + view.safeAreaInsets.bottom
+        let desired = showTyping ? (compact ? 244.0 : 334.0) + view.safeAreaInsets.bottom
             : min(450, max(220, screen.height * 0.46))
         if height?.constant != desired { height?.constant = desired }
     }
@@ -205,6 +206,7 @@ final class KeyboardViewController: UIInputViewController {
     }
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        typingView.updateReturnKey(textDocumentProxy.returnKeyType ?? .default)
         guard isKeyboardVisible else { return }
         if let previous = documentID, previous != textDocumentProxy.documentIdentifier {
             store?.captureMailbox.clear()
@@ -213,6 +215,7 @@ final class KeyboardViewController: UIInputViewController {
             typingView.clearComposition()
             documentID = textDocumentProxy.documentIdentifier
             mode = hasFullAccess ? .idle : .gate
+            showTyping = true
             notice = "输入目标已变化，请重新读取并核对。"; render()
         }
         guard hasFullAccess else {

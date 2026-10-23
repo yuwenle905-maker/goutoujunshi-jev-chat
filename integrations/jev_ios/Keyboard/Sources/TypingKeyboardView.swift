@@ -7,6 +7,8 @@ final class TypingKeyboardView: UIView {
     var onInsert: ((String) -> Void)?
     var onDelete: (() -> Void)?
     var onMove: ((Int) -> Void)?
+    private var returnType: UIReturnKeyType = .default
+    private weak var returnButton: UIButton?
     var onKeyboardButtonCreated: ((UIButton) -> Void)? { didSet { renderKeys() } }
     private var inputMode = UserDefaults.standard.string(forKey: "typingMode.v2") ?? "小鹤双拼"
     private var chinese: Bool { inputMode != "英文" }
@@ -31,17 +33,39 @@ final class TypingKeyboardView: UIView {
 
     var hasComposition: Bool { !composition.raw.isEmpty }
 
+    func updateReturnKey(_ type: UIReturnKeyType) {
+        returnType = type
+        guard let button = returnButton else { return }
+        let title: String
+        switch type {
+        case .send: title = "发送"
+        case .search, .google, .yahoo: title = "搜索"
+        case .go: title = "前往"
+        case .next: title = "下一项"
+        case .done: title = "完成"
+        case .join: title = "加入"
+        case .route: title = "路线"
+        case .continue: title = "继续"
+        default: title = chinese ? "换行" : "return"
+        }
+        button.configuration?.title = hasComposition ? "选字" : title
+        let actionKey = type != .default && type != .emergencyCall
+        button.configuration?.baseBackgroundColor = actionKey ? KB.primary : KB.highlight
+        button.configuration?.baseForegroundColor = actionKey ? KB.onPrimary : KB.ink
+        button.accessibilityLabel = hasComposition ? "确认当前拼音，不发送" : title
+    }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         stack.axis = .vertical; stack.spacing = 5
-        keys.axis = .vertical; keys.spacing = 7
+        keys.axis = .vertical; keys.spacing = 12
         candidateRow.axis = .horizontal; candidateRow.spacing = 6
         candidateScroll.showsHorizontalScrollIndicator = false
         candidateScroll.delaysContentTouches = false
         addSubview(stack); stack.translatesAutoresizingMaskIntoConstraints = false
         candidateScroll.addSubview(candidateRow); candidateRow.translatesAutoresizingMaskIntoConstraints = false
         preedit.numberOfLines = 1
-        preeditHeight = preedit.heightAnchor.constraint(equalToConstant: 18)
+        preeditHeight = preedit.heightAnchor.constraint(equalToConstant: 16)
         candidatesHeight = candidateScroll.heightAnchor.constraint(equalToConstant: 44)
         preeditHeight.isActive = true; candidatesHeight.isActive = true
         [preedit, candidateScroll, keys].forEach { stack.addArrangedSubview($0) }
@@ -81,10 +105,10 @@ final class TypingKeyboardView: UIView {
     func setCompactLayout(_ value: Bool) {
         guard compact != value else { return }
         compact = value
-        preeditHeight.constant = value ? 14 : 18
+        preeditHeight.constant = value ? 14 : 16
         preedit.font = .systemFont(ofSize: value ? 11 : 13)
         candidatesHeight.constant = value ? 32 : 44
-        keys.spacing = value ? 5 : 7
+        keys.spacing = value ? 5 : 12
         renderKeys(); renderCandidates()
     }
     override func didMoveToWindow() {
@@ -99,8 +123,9 @@ final class TypingKeyboardView: UIView {
         config.baseBackgroundColor = utility ? KB.highlight : KB.surface
         config.baseForegroundColor = KB.ink
         config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0)
+        let fontSize: CGFloat = title.count > 1 ? 15 : (compact ? 25 : 29)
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var result = incoming; result.font = .systemFont(ofSize: title.count > 1 ? 15 : 24); return result
+            var result = incoming; result.font = .systemFont(ofSize: fontSize); return result
         }
         button.configuration = config
         button.layer.shadowColor = UIColor.black.cgColor
@@ -125,7 +150,7 @@ final class TypingKeyboardView: UIView {
     }
     private func keyRow(_ views: [UIView]) -> UIStackView {
         let row = UIStackView(arrangedSubviews: views)
-        row.axis = .horizontal; row.spacing = compact ? 4 : 5; row.distribution = .fillEqually
+        row.axis = .horizontal; row.spacing = compact ? 4 : 6; row.distribution = .fillEqually
         return row
     }
     private func deleteKey() -> UIButton {
@@ -201,15 +226,25 @@ final class TypingKeyboardView: UIView {
             guard let self = self else { return }
             if self.hasComposition { self.commitComposition() } else { self.onInsert?(" ") }
         }
-        let enter = key(chinese ? "换行" : "return", identifier: "typingReturn", utility: true) { [weak self] in self?.commitComposition(); self?.onInsert?("\n") }
-        enter.accessibilityLabel = "插入换行，不发送消息"
+        let enter = key("换行", identifier: "typingReturn", utility: true) { [weak self] in
+            guard let self = self else { return }
+            // A pending syllable is committed first; sending needs another deliberate tap.
+            if self.hasComposition { self.commitComposition(); return }
+            // Public keyboard API: the host decides whether Return submits or inserts a newline.
+            self.onInsert?("\n")
+        }
+        returnButton = enter
+        updateReturnKey(returnType)
+        enter.menu = UIMenu(children: [UIAction(title: "插入换行") { [weak self] _ in
+            self?.commitComposition(); self?.onInsert?("\n")
+        }])
         let row = UIStackView(arrangedSubviews: [alphabet, globe, language, punctuation, space, enter])
         row.axis = .horizontal; row.spacing = 5; row.distribution = .fill
         alphabet.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.105).isActive = true
         globe.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.095).isActive = true
         language.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.13).isActive = true
         punctuation.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.075).isActive = true
-        enter.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.16).isActive = true
+        enter.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.20).isActive = true
         space.accessibilityLabel = "空格，拼音输入时选第一个完整候选"
         keys.addArrangedSubview(row)
     }
@@ -245,6 +280,7 @@ final class TypingKeyboardView: UIView {
         }
     }
     private func renderCandidates() {
+        updateReturnKey(returnType)
         preedit.text = composition.raw.isEmpty ? "\(inputMode) · 本地输入 · 点中/EN切换" : composition.raw
         preedit.textColor = KB.secondary
         candidateRow.arrangedSubviews.forEach { $0.removeFromSuperview() }

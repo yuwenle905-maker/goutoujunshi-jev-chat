@@ -11,6 +11,8 @@
 - 打包前检查平台、架构、最低版本、三个 target 的共享组与权限；打包后检查 ZIP 完整性和可执行权限。
 - 产物为 `GoutouJunshi-TrollStore.ipa`、SHA-256 和构建信息。Actions 下载的外层 ZIP 需要先解压。
 
-验证状态：本机 Windows 可执行 Python 语法与打包前置条件检查；Swift 构建及上游检查需要云端 macOS。尚待完成云端构建与 iPhone 实机验证，不能把 IPA 打包成功当作键盘、共享钥匙串及快捷指令已实测。
+验证状态：本机 Python 语法、工作流 YAML、共享权限一致性及无效输入拒绝检查通过。2026-10-23 云端构建 39928706831（源码 47e7f94）成功，上游源码/工程检查、Release 真机编译、三个 target 的权限检查、IPA 完整性与可执行权限检查全部通过。下载后的 SHA-256 和三个真机 bundle 再次核对通过。仍待 iPhone 实机验证，不能把 IPA 打包成功当作键盘、共享钥匙串及快捷指令已实测。
+
+构建记录：https://github.com/yuwenle905-maker/goutoujunshi-jev-chat/actions/runs/39928706831
 
 不要随意改变 Bundle ID、App Group 或共享钥匙串组，以免更新后无法访问旧配置或 Key。通过 TrollStore 覆盖更新，保留原有数据。

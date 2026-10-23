@@ -120,7 +120,7 @@ for name, files, product, kind, identifier, info, entitlement in [
                           dstSubfolderSpec=13, files=embedded, name="Embed App Extensions", runOnlyForDeploymentPostprocessing=0))
     settings = {"PRODUCT_NAME": name, "PRODUCT_BUNDLE_IDENTIFIER": identifier,
                 "INFOPLIST_FILE": info, "CODE_SIGN_ENTITLEMENTS": entitlement,
-                "CURRENT_PROJECT_VERSION": "16", "MARKETING_VERSION": "0.3.0",
+                "CURRENT_PROJECT_VERSION": "17", "MARKETING_VERSION": "0.3.1",
                 "LD_RUNPATH_SEARCH_PATHS": ["$(inherited)", "@executable_path/Frameworks"]}
     if name != "GoutouJunshi":
         settings.update({"APPLICATION_EXTENSION_API_ONLY": "YES", "SKIP_INSTALL": "YES",
@@ -179,7 +179,8 @@ base_info = {
     "CFBundleDevelopmentRegion": "zh-Hans", "CFBundleExecutable": "$(EXECUTABLE_NAME)",
     "CFBundleIdentifier": "$(PRODUCT_BUNDLE_IDENTIFIER)", "CFBundleName": "$(PRODUCT_NAME)",
     "CFBundleShortVersionString": "$(MARKETING_VERSION)", "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
-    "GoutouAppGroup": "$(GOUTOU_APP_GROUP)", "GoutouKeychainGroup": "$(GOUTOU_KEYCHAIN_GROUP)",
+    "GoutouAppGroup": "$(GOUTOU_APP_GROUP)",
+    "NSPhotoLibraryUsageDescription": "由你选择聊天截图用于本地识别；云端识图需另行确认。", "GoutouKeychainGroup": "$(GOUTOU_KEYCHAIN_GROUP)",
     "ITSAppUsesNonExemptEncryption": False,
 }
 for path, info in [

@@ -2,6 +2,7 @@ import Foundation
 import Vision
 import ImageIO
 import UniformTypeIdentifiers
+import CoreImage
 
 /// Capture processes never upload images. The configured cloud providers receive
 /// a preview in the keyboard, then its explicit upload button invokes ModelAPI.
@@ -9,7 +10,7 @@ enum CaptureOCR {
     static func prepare(_ jpeg: Data, request: KeyboardCaptureRequest) async throws -> KeyboardCaptureResult {
         try Task.checkCancellation()
         if request.config.ocr == .local {
-            let text = try await LocalOCR.recognize(jpeg, maxPixelSize: 1600)
+            let text = try await LocalOCR.recognize(jpeg, maxPixelSize: 2000, screenCapture: true)
             return KeyboardCaptureResult(request: request, transcript: text)
         }
         guard jpeg.count <= 4_000_000 else { throw GoutouError.invalid("截图过大，请重新截屏") }
@@ -53,17 +54,44 @@ enum LocalOCR {
         }
         return output as Data
     }
-    static func recognize(_ data: Data, maxPixelSize: Int = 2000) async throws -> String {
+    static func recognize(_ data: Data, maxPixelSize: Int = 2000, screenCapture: Bool = false) async throws -> String {
         let job = Task.detached(priority: .userInitiated) {
             try Task.checkCancellation()
             let cgImage = try Self.image(data, maxPixelSize: maxPixelSize)
-            let request = VNRecognizeTextRequest()
-            request.recognitionLevel = .accurate
-            request.recognitionLanguages = ["zh-Hans", "en-US"]
-            request.usesLanguageCorrection = true
-            try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
+            func scan(_ image: CGImage) throws -> [VNRecognizedTextObservation] {
+                try Task.checkCancellation()
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .accurate
+                request.recognitionLanguages = ["zh-Hans", "en-US"]
+                request.usesLanguageCorrection = true
+                request.minimumTextHeight = 0.008
+                try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+                let portrait = Double(image.height) / Double(image.width) > 1.5
+                return (request.results ?? []).filter { row in
+                    guard let text = row.topCandidates(1).first?.string.trimmed, !text.isEmpty else { return false }
+                    // Vision boxes use bottom-left coordinates. Exclude status/navigation and input bar.
+                    if (portrait || screenCapture) && (row.boundingBox.midY > 0.88 || row.boundingBox.midY < 0.055) { return false }
+                    if row.boundingBox.midX > 0.30 && row.boundingBox.midX < 0.70 &&
+                        text.range(of: "^(?:[0-9]{1,2}月[0-9]{1,2}日\\s*)?[0-9]{1,2}[:：][0-9]{2}$", options: .regularExpression) != nil { return false }
+                    return true
+                }
+            }
+            func hanCount(_ rows: [VNRecognizedTextObservation]) -> Int {
+                rows.reduce(0) { result, row in result + (row.topCandidates(1).first?.string.unicodeScalars.filter {
+                    (0x3400...0x9fff).contains($0.value)
+                }.count ?? 0) }
+            }
+            var rows = try scan(cgImage)
+            if hanCount(rows) < 4 {
+                // White/gray text on dark chat bubbles can be missed by Vision on iOS 17.
+                let inverted = CIImage(cgImage: cgImage).applyingFilter("CIColorInvert")
+                if let light = CIContext(options: [.cacheIntermediates: false]).createCGImage(inverted, from: inverted.extent) {
+                    let retry = try scan(light)
+                    if hanCount(retry) > hanCount(rows) || (rows.isEmpty && !retry.isEmpty) { rows = retry }
+                }
+            }
             try Task.checkCancellation()
-            let observations = (request.results ?? []).sorted { $0.boundingBox.midY > $1.boundingBox.midY }
+            let observations = rows.sorted { $0.boundingBox.midY > $1.boundingBox.midY }
             let lines = observations.compactMap { observation -> String? in
                 guard let text = observation.topCandidates(1).first?.string, !text.trimmed.isEmpty else { return nil }
                 let x = observation.boundingBox.midX
@@ -71,7 +99,7 @@ enum LocalOCR {
                 return speaker + "：" + text
             }
             let text = lines.joined(separator: "\n")
-            guard !text.isEmpty, text.count <= 12_000 else { throw GoutouError.invalid("未识别到文字，或内容过长；请缩小聊天范围") }
+            guard !text.isEmpty, text.count <= 12_000 else { throw GoutouError.invalid("没有识别到有效聊天文字。请先收起键盘再截屏，或从相册选择清晰的完整聊天截图；时间和电量不作为聊天。") }
             return text
         }
         return try await withTaskCancellationHandler(operation: { try await job.value }, onCancel: { job.cancel() })

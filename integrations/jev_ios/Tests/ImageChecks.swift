@@ -35,6 +35,29 @@ struct ImageChecks {
         }
         return png
     }
+    @MainActor static func darkFixture(statusOnly: Bool = false) throws -> Data {
+        let canvas = NSImage(size: NSSize(width: 1170, height: 2532))
+        canvas.lockFocus()
+        NSColor(calibratedWhite: 0.06, alpha: 1).setFill()
+        NSRect(x: 0, y: 0, width: 1170, height: 2532).fill()
+        func line(_ text: String, x: CGFloat, y: CGFloat, color: NSColor = .white) {
+            (text as NSString).draw(at: NSPoint(x: x, y: y), withAttributes: [.font: NSFont.systemFont(ofSize: 48), .foregroundColor: color])
+        }
+        line("02:24", x: 65, y: 2420); line("64", x: 1040, y: 2420)
+        if !statusOnly {
+            line("测试聊天", x: 450, y: 2260)
+            NSColor(calibratedWhite: 0.18, alpha: 1).setFill()
+            NSRect(x: 150, y: 1780, width: 680, height: 120).fill()
+            line("今天先处理工作", x: 180, y: 1810, color: NSColor(calibratedWhite: 0.7, alpha: 1))
+            line("知道了，你先忙", x: 680, y: 1550)
+            line("12:08", x: 495, y: 1370, color: .gray)
+            line("64", x: 975, y: 1150) // A genuine numeric message, outside status area.
+        }
+        canvas.unlockFocus()
+        guard let tiff = canvas.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { throw GoutouError.invalid("Dark fixture failed") }
+        return png
+    }
     @MainActor static func main() async {
         do {
             let png = try fixture()
@@ -81,6 +104,18 @@ struct ImageChecks {
             let localRequest = KeyboardCaptureRequest(relationship: Relationship(id: "fixture"), config: config, excludedBottomFraction: 0.4)
             let localResult = try await CaptureOCR.prepare(jpeg, request: localRequest)
             try check("Local capture uses Vision and returns text", localResult.transcript.contains("这周") && localResult.screenshot == nil)
+            let dark = try darkFixture()
+            let darkText = try await LocalOCR.recognize(dark)
+            try check("Dark Chinese chat recognized", darkText.replacingOccurrences(of: " ", with: "").contains("今天先处理工作"))
+            try check("Status time and centered timestamp excluded", !darkText.contains("02:24") && !darkText.contains("12:08"))
+            try check("Numeric chat message retained", darkText.contains("64"))
+            let croppedDark = try LocalOCR.boundedJPEG(dark, maxPixelSize: 2000, excludedBottomFraction: 0.35)
+            let capturedDark = try await CaptureOCR.prepare(croppedDark, request: localRequest)
+            try check("Cropped capture keeps Chinese but rejects status", capturedDark.transcript.contains("今天") && !capturedDark.transcript.contains("02:24"))
+            do {
+                _ = try await LocalOCR.recognize(darkFixture(statusOnly: true))
+                throw GoutouError.invalid("Status-only image accepted as chat")
+            } catch GoutouError.invalid(let message) where message != "Status-only image accepted as chat" { count += 1 }
             for provider in [OCRProvider.deepseek, .openrouter] {
                 config.ocr = provider; config.visionModel = "fixture-vision"
                 let request = KeyboardCaptureRequest(relationship: localRequest.relationship, config: config, excludedBottomFraction: 0.4)

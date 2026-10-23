@@ -4,7 +4,7 @@ import ReplayKit
 /// Offline typing plus user-invoked advice. Return is dispatched only on an explicit key press.
 @MainActor
 final class KeyboardViewController: UIInputViewController {
-    private enum Mode { case idle, screenshot, review, loading, result, details, insertConfirmation, gate }
+    private enum Mode { case idle, imageSource, photos, screenshot, review, loading, result, details, insertConfirmation, gate }
     private var mode: Mode = .idle
     private var store: GoutouStore?
     private var config = AppConfig()
@@ -36,6 +36,8 @@ final class KeyboardViewController: UIInputViewController {
     private var captureTimer: Timer?
     private var waitingCapture: KeyboardCaptureRequest?
     private var receivedCaptureID: UUID?
+    private var showScreenshotHelp = false
+    private lazy var photoGrid = KeyboardPhotosView()
     private var showBroadcastExperiment = false
     private var isKeyboardVisible = false
     private var persistedSession: KeyboardSession?
@@ -188,13 +190,15 @@ final class KeyboardViewController: UIInputViewController {
         let screen = view.window?.windowScene?.coordinateSpace.bounds ?? CGRect(x: 0, y: 0, width: 390, height: 844)
         let compact = screen.width > screen.height
         typingView.setCompactLayout(compact)
+        let imageHeight: CGFloat = mode == .imageSource ? 290 : (mode == .screenshot && pendingScreenshot == nil && !showScreenshotHelp ? 210 : min(450, max(220, screen.height * 0.46)))
         let desired = showTyping ? (compact ? 244.0 : 334.0) + view.safeAreaInsets.bottom
-            : min(450, max(220, screen.height * 0.46))
+            : imageHeight
         if height?.constant != desired { height?.constant = desired }
     }
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         isKeyboardVisible = false
+        photoGrid.cancel()
         captureTimer?.invalidate(); captureTimer = nil
         persistSession()
         // A keyboard may disappear while the system shortcut runs, and iOS may
@@ -209,6 +213,7 @@ final class KeyboardViewController: UIInputViewController {
         typingView.updateReturnKey(textDocumentProxy.returnKeyType ?? .default)
         guard isKeyboardVisible else { return }
         if let previous = documentID, previous != textDocumentProxy.documentIdentifier {
+            photoGrid.cancel()
             store?.captureMailbox.clear()
             waitingCapture = nil; receivedCaptureID = nil
             invalidate(clearTranscript: true)
@@ -300,7 +305,7 @@ final class KeyboardViewController: UIInputViewController {
         toggle.accessibilityIdentifier = "keyboardModeToggle"
         header.addArrangedSubview(toggle)
         header.addArrangedSubview(UIView())
-        let screenshot = toolbarButton("viewfinder", label: "识图：等待系统截图") { [weak self] in self?.openScreenshot() }
+        let screenshot = toolbarButton("viewfinder", label: "识图：选择相册或全屏截屏") { [weak self] in self?.openImageSource() }
         var captureStyle = UIButton.Configuration.tinted()
         captureStyle.title = "识图"
         captureStyle.baseForegroundColor = KB.ink; captureStyle.baseBackgroundColor = KB.highlight
@@ -330,16 +335,28 @@ final class KeyboardViewController: UIInputViewController {
             ]))
             return
         }
-        if store != nil { content.addArrangedSubview(contextButton()) }
+        if store != nil && mode != .imageSource && mode != .photos && mode != .screenshot { content.addArrangedSubview(contextButton()) }
         switch mode {
         case .idle:
             content.addArrangedSubview(KB.label("从聊天截图或已复制的消息读取，再核对并分析。", size: 14))
             content.addArrangedSubview(KB.row([
-                KB.button("截图识别", icon: "photo", primary: true) { [weak self] in self?.openScreenshot() },
+                KB.button("从相册选截图", icon: "photo", primary: true) { [weak self] in self?.openPhotos() },
                 KB.button("读取剪贴板", icon: "doc.on.clipboard") { [weak self] in self?.read(.clipboard) }
             ]))
             content.addArrangedSubview(KB.button("读取输入框里的草稿", icon: "text.cursor") { [weak self] in self?.read(.input) })
-            content.addArrangedSubview(KB.label("相册选图：打开狗头军师 App → 从截图读取聊天。核对分析后交给键盘。输入框读取只取得自己的草稿。", size: 13))
+            content.addArrangedSubview(KB.label("点顶部“识图”可选择相册，或先收起键盘截取完整聊天。输入框读取只取得自己的草稿。", size: 13))
+        case .imageSource:
+            content.addArrangedSubview(KB.label("选择图片来源", size: 17, bold: true))
+            content.addArrangedSubview(KB.button("从相册选择截图", icon: "photo", primary: true) { [weak self] in self?.openPhotos() })
+            content.addArrangedSubview(KB.button("收起键盘后截屏（推荐）", icon: "keyboard.chevron.compact.down") { [weak self] in self?.openScreenshot(hideKeyboard: true) })
+            content.addArrangedSubview(KB.button("在小面板等待快捷指令截图") { [weak self] in self?.openScreenshot() })
+            content.addArrangedSubview(KB.button("读取已复制的截图", icon: "doc.on.clipboard") { [weak self] in
+                self?.mode = .screenshot; self?.readScreenshot()
+            })
+            content.addArrangedSubview(KB.label("全屏截屏：键盘收起后，双击已绑定的悬浮球运行“截图问军师”；结束后点聊天输入框回到键盘。", size: 12))
+        case .photos:
+            content.addArrangedSubview(KB.label("从相册选择聊天截图", size: 17, bold: true))
+            content.addArrangedSubview(photoGrid)
         case .screenshot: screenshotView()
         case .review: reviewView()
         case .loading:
@@ -357,7 +374,31 @@ final class KeyboardViewController: UIInputViewController {
         case .gate: break
         }
     }
-    private func openScreenshot() {
+    private func openImageSource() {
+        guard mode != .loading else { return }
+        photoGrid.cancel(); showTyping = false; mode = .imageSource; render()
+    }
+    private func openPhotos() {
+        guard hasFullAccess, store != nil else {
+            showTyping = false; mode = .gate; render(); return
+        }
+        store?.captureMailbox.clear(); waitingCapture = nil; receivedCaptureID = nil
+        invalidate(clearTranscript: true)
+        config = store?.config() ?? config; relationship = store?.relationship() ?? relationship
+        showTyping = false; mode = .photos
+        photoGrid.onMessage = { [weak self] text in self?.notice = text; self?.footer.text = text }
+        photoGrid.onImage = { [weak self] data in
+            guard let self = self else { return }
+            do {
+                self.pendingScreenshot = try LocalOCR.boundedJPEG(data, maxPixelSize: 2200)
+                self.photoGrid.cancel()
+                self.mode = .screenshot; self.showScreenshotHelp = false
+                self.notice = "已选择相册截图，请确认预览，再点识别。"; self.render()
+            } catch { self.footer.text = error.localizedDescription }
+        }
+        photoGrid.load(); render()
+    }
+    private func openScreenshot(hideKeyboard: Bool = false) {
         guard mode != .loading else { return }
         guard hasFullAccess, store != nil else {
             showTyping = false; mode = .gate
@@ -365,22 +406,23 @@ final class KeyboardViewController: UIInputViewController {
         }
         invalidate(clearTranscript: true)
         waitingCapture = nil; receivedCaptureID = nil
-        showBroadcastExperiment = false
+        showBroadcastExperiment = false; showScreenshotHelp = false
         showTyping = false; mode = .screenshot
         notice = "已准备等待截图。请双击系统悬浮球，运行“截屏 → 截图交给键盘（按配置）”。"
         if hasFullAccess, let store = store {
             do {
                 config = store.config(); relationship = store.relationship()
-                let screen = view.window?.windowScene?.coordinateSpace.bounds.height ?? 844
-                // The capture panel is taller than typing mode; arm with its final height.
-                let panelHeight = min(450, max(220, screen * 0.46))
+                let screen = UIScreen.main.bounds.height
+                // Use the physical display, never the keyboard extension scene bounds.
+                let panelHeight = 210 + view.safeAreaInsets.bottom + 55
                 let request = KeyboardCaptureRequest(relationship: relationship, config: config,
-                    excludedBottomFraction: min(0.7, Double(panelHeight / screen)))
+                    excludedBottomFraction: hideKeyboard ? 0 : min(0.7, Double(panelHeight / screen)))
                 try store.captureMailbox.arm(request)
                 waitingCapture = request
             } catch { notice = error.localizedDescription }
         }
         render()
+        if hideKeyboard && waitingCapture != nil { dismissKeyboard() }
     }
     private func toolbarButton(_ icon: String, label: String, action: (() -> Void)? = nil) -> UIButton {
         let button = UIButton(type: .system)
@@ -394,6 +436,18 @@ final class KeyboardViewController: UIInputViewController {
         return button
     }
     private func screenshotView() {
+        if pendingScreenshot == nil {
+            content.addArrangedSubview(KB.label("等待截图 · 有效期90秒", size: 16, bold: true))
+            content.addArrangedSubview(KB.label("收起键盘后，双击悬浮球运行已配置的“截图问军师”；完成后点聊天输入框回来。", size: 13))
+            content.addArrangedSubview(KB.row([
+                KB.button("收起后全屏截屏", primary: true) { [weak self] in self?.openScreenshot(hideKeyboard: true) },
+                KB.button("相册选图", icon: "photo") { [weak self] in self?.openPhotos() }
+            ]))
+        }
+        content.addArrangedSubview(KB.button(showScreenshotHelp ? "收起说明" : "快捷指令配置说明 / 实验入口") { [weak self] in
+            guard let self = self else { return }; self.showScreenshotHelp.toggle(); self.render()
+        })
+        if showScreenshotHelp {
         content.addArrangedSubview(KB.label("从截图读取聊天", size: 17, bold: true))
         content.addArrangedSubview(KB.card([
             KB.label("系统截屏 → 按配置识图", size: 16, bold: true),
@@ -425,6 +479,7 @@ final class KeyboardViewController: UIInputViewController {
                     self.render()
                 })
             }
+        }
         }
         if let data = pendingScreenshot, let image = try? LocalOCR.image(data, maxPixelSize: 480) {
             let preview = UIImageView(image: UIImage(cgImage: image))

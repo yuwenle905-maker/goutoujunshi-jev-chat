@@ -17,7 +17,7 @@ struct ScreenshotShortcutGuide: View {
                         step("1", "打开“快捷指令”，新建“截图问军师”。")
                         step("2", "添加系统的“截屏”操作（也可能显示为“拍摄截屏”）。")
                         step("3", "再添加狗头军师的“截图交给键盘（按配置）”，把“聊天截图”设为上一项的截屏结果。已有“截图交给键盘（本地）”动作会沿用新配置，无需重建。")
-                        step("4", "保存。保持“截屏 → 截图交给键盘（按配置）”，使用时先在键盘点“识图”，90 秒内触发截图。")
+                        step("4", "保存。保持“截屏 → 截图交给键盘（按配置）”，使用时在键盘点“识图”→“收起键盘后截屏”，90 秒内触发截图；完成后点聊天输入框回来核对。")
                         Button("打开快捷指令") {
                             if let url = URL(string: "shortcuts://") { UIApplication.shared.open(url) }
                         }.buttonStyle(BrandPrimaryButtonStyle())

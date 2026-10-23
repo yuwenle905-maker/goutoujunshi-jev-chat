@@ -16,6 +16,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GoutouAppGroup</key>
 	<string>$(GOUTOU_APP_GROUP)</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>由你选择聊天截图用于本地识别；云端识图需另行确认。</string>
 	<key>GoutouKeychainGroup</key>
 	<string>$(GOUTOU_KEYCHAIN_GROUP)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

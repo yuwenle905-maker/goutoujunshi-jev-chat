@@ -10,6 +10,7 @@ on:
       - integrations/jev_ios/App/**
       - integrations/jev_ios/Keyboard/**
       - integrations/jev_ios/Tests/**
+      - integrations/jev_ios/Share/**
 
 permissions:
   contents: read

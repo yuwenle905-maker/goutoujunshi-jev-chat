@@ -64,10 +64,11 @@ def main():
         targets = [
             (app / "PlugIns/GoutouKeyboard.appex", identifier + ".keyboard", False),
             (app / "PlugIns/GoutouCapture.appex", identifier + ".capture", True),
+            (app / "PlugIns/GoutouShare.appex", identifier + ".share", False),
             (app, identifier, False),
         ]
         assert set(p.name for p in (app / "PlugIns").glob("*.appex")) == {
-            "GoutouKeyboard.appex", "GoutouCapture.appex"
+            "GoutouKeyboard.appex", "GoutouCapture.appex", "GoutouShare.appex"
         }, "Both keyboard and capture extensions must be embedded"
         manifest = []
         for index, (bundle, bundle_id, capture) in enumerate(targets):

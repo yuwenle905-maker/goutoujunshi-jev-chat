@@ -88,7 +88,7 @@ struct GoutouPipeline {
         try transcript.validate(); try relationship.validate(); try api.preflight()
         return try ModelJSON.json(["visible_transcript": transcript.text, "object": relationship.label,
             "stage": relationship.stage, "goal": relationship.goal, "goal_guide": Relationship.guidance(for: relationship.goal), "background": relationship.background,
-            "notes": relationship.notes, "my_confirmed_lines": transcript.myLines])
+            "notes": relationship.notes, "my_confirmed_lines": transcript.myLines, "person_memory": api.memoryContext])
     }
     func deepseekDecision(_ payload: String) async throws -> Decision {
         let criteria = Strategy.allCases.map { "\($0.rawValue)：\($0.guide)" }.joined(separator: "\n")

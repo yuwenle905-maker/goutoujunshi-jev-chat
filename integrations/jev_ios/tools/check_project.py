@@ -13,7 +13,7 @@ project = json.loads(subprocess.check_output([
 ]))
 objects = project["objects"]
 targets = {value["name"]: value for value in objects.values() if value["isa"] == "PBXNativeTarget"}
-assert set(targets) == {"GoutouJunshi", "GoutouKeyboard", "GoutouCapture"}
+assert set(targets) == {"GoutouJunshi", "GoutouKeyboard", "GoutouCapture", "GoutouShare"}
 shared = {p.relative_to(ROOT).as_posix() for p in (ROOT / "Shared").glob("*.swift")}
 recognition = {p.relative_to(ROOT).as_posix() for p in (ROOT / "ImageRecognition").glob("*.swift")}
 
@@ -23,7 +23,7 @@ def phase_paths(target, phase):
     return {objects[objects[key]["fileRef"]]["path"] for item in phases for key in item["files"]}
 
 
-for name, folder in [("GoutouJunshi", "App"), ("GoutouKeyboard", "Keyboard"), ("GoutouCapture", "Capture")]:
+for name, folder in [("GoutouJunshi", "App"), ("GoutouKeyboard", "Keyboard"), ("GoutouCapture", "Capture"), ("GoutouShare", "Share")]:
     target = targets[name]
     sources = {p.relative_to(ROOT).as_posix() for p in (ROOT / folder / "Sources").glob("*.swift")}
     if name == "GoutouKeyboard":
@@ -46,8 +46,12 @@ for name, folder in [("GoutouJunshi", "App"), ("GoutouKeyboard", "Keyboard"), ("
         if name == "GoutouCapture":
             assert "GOUTOU_CAPTURE" in settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"].split()
 
-assert phase_paths(targets["GoutouJunshi"], "PBXCopyFilesBuildPhase") == {"GoutouKeyboard.appex", "GoutouCapture.appex"}
-assert len(targets["GoutouJunshi"]["dependencies"]) == 2
+assert phase_paths(targets["GoutouJunshi"], "PBXCopyFilesBuildPhase") == {"GoutouKeyboard.appex", "GoutouCapture.appex", "GoutouShare.appex"}
+assert len(targets["GoutouJunshi"]["dependencies"]) == 3
+share = plistlib.loads((ROOT / "Share/Info.plist").read_bytes())["NSExtension"]
+assert share["NSExtensionPointIdentifier"] == "com.apple.share-services"
+assert share["NSExtensionPrincipalClass"] == "$(PRODUCT_MODULE_NAME).ShareViewController"
+assert plistlib.loads((ROOT / "Share/GoutouShare.entitlements").read_bytes()) == plistlib.loads((ROOT / "App/GoutouJunshi.entitlements").read_bytes())
 app_resources = phase_paths(targets["GoutouJunshi"], "PBXResourcesBuildPhase")
 assert sum(path.endswith(".csv") for path in app_resources) == 5
 entitlements = [plistlib.loads((ROOT / file).read_bytes()) for file in (

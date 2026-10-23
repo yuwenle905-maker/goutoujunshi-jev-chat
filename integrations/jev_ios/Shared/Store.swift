@@ -62,6 +62,10 @@ final class GoutouStore {
     }
 
     func config() -> AppConfig { decode("config", fallback: AppConfig()) }
+    #if !GOUTOU_CAPTURE
+    func memoryStore() throws -> ChatMemoryStore { ChatMemoryStore(container: container, key: try MemoryEncryptionKey.load()) }
+    var importInbox: SharedImportInbox { SharedImportInbox(container: container) }
+    #endif
     func saveConfig(_ value: AppConfig) throws {
         try value.validate()
         try save(value, key: "config")
@@ -86,10 +90,19 @@ final class GoutouStore {
     }
     func archived() -> [Relationship] { decode("profiles", fallback: []) }
     func deleteProfile(_ id: String) throws {
+        #if !GOUTOU_CAPTURE
+        if FileManager.default.fileExists(atPath: container.appendingPathComponent("PersonMemory").path) { try memoryStore().clear(id) }
+        #endif
         try save(archived().filter { $0.id != id }, key: "profiles")
         if relationship().id == id { try saveRelationship(Relationship(id: "current"), archive: false) }
     }
-    func clearProfiles() {
+    func clearProfiles() throws {
+        #if !GOUTOU_CAPTURE
+        if FileManager.default.fileExists(atPath: container.appendingPathComponent("PersonMemory").path) {
+            let memory = try memoryStore()
+            for id in Set(archived().map(\.id) + [relationship().id]) { try memory.clear(id) }
+        }
+        #endif
         defaults.removeObject(forKey: "profiles")
         defaults.removeObject(forKey: "relationship")
         clearHandoff()

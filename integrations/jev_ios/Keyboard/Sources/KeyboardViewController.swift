@@ -21,6 +21,11 @@ final class KeyboardViewController: UIInputViewController {
     private let scroll = UIScrollView()
     private let header = UIStackView()
     private let footer = UILabel()
+    private let reviewBar = UIStackView()
+    private var reviewBarHeight: NSLayoutConstraint!
+    private var pendingMemoryPlan: MemoryMerge?
+    private var pendingMemoryObject = ""
+    private var pendingMemoryText = ""
     private var height: NSLayoutConstraint?
     private var typingConstraints = [NSLayoutConstraint]()
     private var confirmButton: UIButton?
@@ -51,14 +56,16 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = KB.cream
-        view.tintColor = BrandTheme.accent
+        view.tintColor = .systemBlue
         scroll.delaysContentTouches = false
         scroll.showsVerticalScrollIndicator = true
         content.axis = .vertical; content.spacing = 12
         header.axis = .horizontal; header.spacing = 6; header.alignment = .center
         footer.font = .preferredFont(forTextStyle: .caption2)
         footer.numberOfLines = 0; footer.textColor = KB.secondary
-        for item in [header, scroll, footer, typingView] { view.addSubview(item); item.translatesAutoresizingMaskIntoConstraints = false }
+        reviewBar.axis = .vertical; reviewBar.spacing = 6
+        for item in [header, scroll, reviewBar, footer, typingView] { view.addSubview(item); item.translatesAutoresizingMaskIntoConstraints = false }
+        reviewBarHeight = reviewBar.heightAnchor.constraint(equalToConstant: 0); reviewBarHeight.isActive = true
         scroll.addSubview(content); content.translatesAutoresizingMaskIntoConstraints = false
         height = view.heightAnchor.constraint(equalToConstant: 326)
         height?.priority = .init(999)
@@ -70,7 +77,10 @@ final class KeyboardViewController: UIInputViewController {
             scroll.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 10),
             scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            scroll.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -8),
+            scroll.bottomAnchor.constraint(equalTo: reviewBar.topAnchor, constant: -6),
+            reviewBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            reviewBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            reviewBar.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -4),
             footer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             footer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             footer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -6),
@@ -253,6 +263,9 @@ final class KeyboardViewController: UIInputViewController {
         persistSession()
         header.arrangedSubviews.forEach { $0.removeFromSuperview() }
         content.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        reviewBar.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        reviewBar.isHidden = showTyping || mode != .review
+        reviewBarHeight.constant = reviewBar.isHidden ? 0 : 100
         confirmButton = nil; analyzeButton = nil
         view.backgroundColor = KB.cream
         typingView.isHidden = !showTyping; scroll.isHidden = showTyping; footer.isHidden = showTyping
@@ -381,13 +394,13 @@ final class KeyboardViewController: UIInputViewController {
         content.addArrangedSubview(KB.label("从截图读取聊天", size: 17, bold: true))
         content.addArrangedSubview(KB.card([
             KB.label("系统截屏 → 按配置识图", size: 16, bold: true),
-            KB.label("双击已绑定的系统悬浮球，运行“截屏 → 截图交给键盘（按配置）”。已有快捷指令会沿用新配置，无需重建。", size: 14),
+            KB.label("首次配置：① 系统“快捷指令”中新建“截图问军师”。② 添加系统“截屏”，再添加狗头军师“截图交给键盘（按配置）”，图片选上一步结果。③ 设置→辅助功能→触控→辅助触控，开启后将“轻点两下”绑定此快捷指令。", size: 14),
             KB.label(config.ocr == .local ? "当前：Apple Vision 本地。截图在本机识别，文字直接回到键盘。"
                 : "当前：\(config.ocr.rawValue)。截图先回到键盘预览，点“发送截图并识别”后上传。", size: 12),
             KB.label("等待有效期 90 秒；收到的截图最多暂存 5 分钟。", size: 12)
         ]))
         content.addArrangedSubview(KB.button("重新等待截图", icon: "arrow.clockwise", primary: true) { [weak self] in self?.openScreenshot() })
-        content.addArrangedSubview(KB.label("键盘按钮准备接收截图，系统截屏由悬浮球快捷指令触发。", size: 12))
+        content.addArrangedSubview(KB.label("每次使用：先点本页等待截图，再于 90 秒内双击悬浮球。也可用电源键＋音量上键截图，到主 App 选择图片，无需配置快捷指令。", size: 13))
         if hasFullAccess, store != nil {
             if #available(iOS 27.0, *) {
                 content.addArrangedSubview(KB.label("此实验入口支持 iOS 16–26；当前系统请使用快捷指令或复制截图。", size: 14))
@@ -589,12 +602,22 @@ final class KeyboardViewController: UIInputViewController {
             self.confirmed.toggle(); self.render()
         }
         confirm.accessibilityIdentifier = "keyboardConfirmSource"
-        confirmButton = confirm; content.addArrangedSubview(confirm)
+        confirmButton = confirm; reviewBar.addArrangedSubview(confirm)
         let analyze = KB.button("确认并分析", primary: true) { [weak self] in self?.analyze() }
         analyze.isEnabled = confirmed
         analyze.accessibilityIdentifier = "keyboardAnalyze"
         analyzeButton = analyze
-        content.addArrangedSubview(KB.row([analyze, KB.button("重新读取") { [weak self] in self?.clearRound() }]))
+        reviewBar.addArrangedSubview(KB.row([analyze, KB.button("重新读取") { [weak self] in self?.clearRound() }]))
+        if let memory = try? store?.memoryStore(), let archive = try? memory.load(relationship.id), archive.enabled {
+            let save = KB.button("保存已核对聊天到此对象记忆") { [weak self] in self?.prepareMemorySave() }
+            save.isEnabled = confirmed; content.addArrangedSubview(save)
+            content.addArrangedSubview(KB.label("此对象已有 \(archive.messages.count) 条记忆。分析读取已保存历史；保存本轮需点上方按钮。", size: 12))
+        }
+        if let plan = pendingMemoryPlan, pendingMemoryObject == relationship.id, pendingMemoryText == transcript {
+            content.addArrangedSubview(KB.label("本批 \(plan.incoming.count) 条，与历史末尾有 \(plan.overlapping) 条相同，请确认。", size: 13))
+            content.addArrangedSubview(KB.button("跳过重叠后保存") { [weak self] in self?.finishMemorySave(skip: true) })
+            content.addArrangedSubview(KB.button("全部保留，包括重复消息") { [weak self] in self?.finishMemorySave(skip: false) })
+        }
         content.addArrangedSubview(KB.button("清空本轮") { [weak self] in self?.clearRound() })
     }
     private func reviewLine(_ index: Int, speaker: String?) {
@@ -615,7 +638,25 @@ final class KeyboardViewController: UIInputViewController {
         var raw = transcript
         for prefix in ["我：", "我:", "对方：", "对方:"] where raw.hasPrefix(prefix) { raw = String(raw.dropFirst(prefix.count)); break }
         transcript = speaker + "：" + raw
-        confirmed = false; render()
+        confirmed = false; notice = "已标为“\(speaker)”说的。确认无误后点底部“已核对”，再点“确认并分析”。"; render()
+    }
+    private func prepareMemorySave() {
+        do {
+            try Transcript(text: transcript, confirmed: confirmed).validate()
+            guard let memory = try store?.memoryStore() else { return }
+            let plan = try memory.preview(relationship.id, transcript: transcript, source: "键盘核对")
+            pendingMemoryPlan = plan; pendingMemoryObject = relationship.id; pendingMemoryText = transcript
+            if plan.overlapping == 0 { finishMemorySave(skip: false) }
+            else { notice = "请在聊天列表下方确认如何合并重叠消息。"; render() }
+        } catch { notice = error.localizedDescription; footer.text = notice }
+    }
+    private func finishMemorySave(skip: Bool) {
+        do {
+            guard let plan = pendingMemoryPlan, pendingMemoryObject == relationship.id, pendingMemoryText == transcript,
+                  confirmed, let memory = try store?.memoryStore() else { return }
+            let count = try memory.merge(relationship.id, plan: plan, skipOverlap: skip)
+            pendingMemoryPlan = nil; notice = "已新增 \(count) 条长期记忆。"; render()
+        } catch { pendingMemoryPlan = nil; notice = error.localizedDescription; footer.text = notice }
     }
     private func analyze(rewrite: Bool = false) {
         guard hasFullAccess else { mode = .gate; render(); return }
@@ -627,7 +668,8 @@ final class KeyboardViewController: UIInputViewController {
             }
             let text = Transcript(text: transcript, confirmed: confirmed || rewrite)
             try text.validate()
-            let api = ModelAPI(transport: transport, config: config, secrets: try CredentialVault.load())
+            let memoryContext = try store?.memoryStore().context(relationship.id) ?? ""
+            let api = ModelAPI(transport: transport, config: config, secrets: try CredentialVault.load(), memoryContext: memoryContext)
             try api.preflight(); try relationship.validate()
             let previous = advice
             revision += 1; task?.cancel()

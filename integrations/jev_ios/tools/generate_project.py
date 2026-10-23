@@ -41,12 +41,14 @@ app = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "App/Sources").glob
 keyboard = sorted(p.relative_to(ROOT).as_posix() for folder in ("Keyboard/Sources", "Keyboard/Input")
                   for p in (ROOT / folder).glob("*.swift"))
 capture = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "Capture/Sources").glob("*.swift"))
+share = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "Share/Sources").glob("*.swift"))
 capture_shared = ["Shared/Domain.swift", "Shared/Store.swift", "Shared/CaptureMailbox.swift"]
 keyboard_resources = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "Keyboard/Resources").glob("*") if p.is_file())
 resources = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "App/Resources").glob("*.csv"))
 app_id = identity("target:app")
 keyboard_id = identity("target:keyboard")
 capture_id = identity("target:capture")
+share_id = identity("target:share")
 project_id = identity("project")
 signing = file("Signing.xcconfig", "text.xcconfig")
 
@@ -81,8 +83,10 @@ for name, files, product, kind, identifier, info, entitlement in [
      "$(GOUTOU_BUNDLE_ID).keyboard", "Keyboard/Info.plist", "Keyboard/GoutouKeyboard.entitlements"),
     ("GoutouCapture", capture, "GoutouCapture.appex", "com.apple.product-type.app-extension",
      "$(GOUTOU_BUNDLE_ID).capture", "Capture/Info.plist", "Capture/GoutouCapture.entitlements"),
+    ("GoutouShare", share, "GoutouShare.appex", "com.apple.product-type.app-extension",
+     "$(GOUTOU_BUNDLE_ID).share", "Share/Info.plist", "Share/GoutouShare.entitlements"),
 ]:
-    target_key = {"GoutouJunshi": app_id, "GoutouKeyboard": keyboard_id, "GoutouCapture": capture_id}[name]
+    target_key = {"GoutouJunshi": app_id, "GoutouKeyboard": keyboard_id, "GoutouCapture": capture_id, "GoutouShare": share_id}[name]
     product_ref = add("product:" + name, "PBXFileReference", explicitFileType="wrapper.application" if name == "GoutouJunshi" else "wrapper.app-extension",
                       path=product, sourceTree="BUILT_PRODUCTS_DIR", includeInIndex=0)
     products.append(product_ref)
@@ -103,7 +107,7 @@ for name, files, product, kind, identifier, info, entitlement in [
     dependencies = []
     if name == "GoutouJunshi":
         embedded = []
-        for token, target, product_name in [("keyboard", keyboard_id, "GoutouKeyboard"), ("capture", capture_id, "GoutouCapture")]:
+        for token, target, product_name in [("keyboard", keyboard_id, "GoutouKeyboard"), ("capture", capture_id, "GoutouCapture"), ("share", share_id, "GoutouShare")]:
             proxy = add(token + "-proxy", "PBXContainerItemProxy", containerPortal=project_id, proxyType=1,
                         remoteGlobalIDString=target, remoteInfo=product_name)
             dependencies.append(add(token + "-dependency", "PBXTargetDependency", target=target, targetProxy=proxy))
@@ -113,7 +117,7 @@ for name, files, product, kind, identifier, info, entitlement in [
                           dstSubfolderSpec=13, files=embedded, name="Embed App Extensions", runOnlyForDeploymentPostprocessing=0))
     settings = {"PRODUCT_NAME": name, "PRODUCT_BUNDLE_IDENTIFIER": identifier,
                 "INFOPLIST_FILE": info, "CODE_SIGN_ENTITLEMENTS": entitlement,
-                "CURRENT_PROJECT_VERSION": "13", "MARKETING_VERSION": "0.1.1",
+                "CURRENT_PROJECT_VERSION": "14", "MARKETING_VERSION": "0.2.0",
                 "LD_RUNPATH_SEARCH_PATHS": ["$(inherited)", "@executable_path/Frameworks"]}
     if name != "GoutouJunshi":
         settings.update({"APPLICATION_EXTENSION_API_ONLY": "YES", "SKIP_INSTALL": "YES",
@@ -128,7 +132,7 @@ for name, files, product, kind, identifier, info, entitlement in [
     targets.append(target_key)
 
 groups = []
-for title, files in [("Shared", shared), ("ImageRecognition", recognition), ("App", app), ("Keyboard", keyboard), ("Capture", capture), ("Resources", resources + keyboard_resources)]:
+for title, files in [("Shared", shared), ("ImageRecognition", recognition), ("App", app), ("Keyboard", keyboard), ("Capture", capture), ("Share", share), ("Resources", resources + keyboard_resources)]:
     refs = [file(p, "sourcecode.swift" if p.endswith(".swift") else "text") for p in files]
     if title == "Shared": refs.append(file("Shared/BrandAssets.xcassets", "folder.assetcatalog"))
     if title == "App": refs += [file("App/Info.plist", "text.plist.xml"), file("App/GoutouJunshi.entitlements", "text.plist.entitlements"),
@@ -187,11 +191,16 @@ for path, info in [
         "NSExtension": {"NSExtensionPointIdentifier": "com.apple.broadcast-services-upload",
                        "NSExtensionPrincipalClass": "$(PRODUCT_MODULE_NAME).SampleHandler",
                        "NSExtensionAttributes": {"RPBroadcastProcessMode": "RPBroadcastProcessModeSampleBuffer"}}}),
+    ("Share/Info.plist", {**base_info, "CFBundleDisplayName": "导入狗头军师", "CFBundlePackageType": "XPC!",
+        "NSExtension": {"NSExtensionPointIdentifier": "com.apple.share-services",
+                       "NSExtensionPrincipalClass": "$(PRODUCT_MODULE_NAME).ShareViewController",
+                       "NSExtensionAttributes": {"NSExtensionActivationRule": {"NSExtensionActivationSupportsText": True,
+                           "NSExtensionActivationSupportsFileWithMaxCount": 1, "NSExtensionActivationSupportsImageWithMaxCount": 1}}}}),
 ]:
     (ROOT / path).write_bytes(plistlib.dumps(info, sort_keys=False))
 entitlements = {"com.apple.security.application-groups": ["$(GOUTOU_APP_GROUP)"],
                 "keychain-access-groups": ["$(GOUTOU_KEYCHAIN_GROUP)"]}
-for path in ["App/GoutouJunshi.entitlements", "Keyboard/GoutouKeyboard.entitlements"]:
+for path in ["App/GoutouJunshi.entitlements", "Keyboard/GoutouKeyboard.entitlements", "Share/GoutouShare.entitlements"]:
     (ROOT / path).write_bytes(plistlib.dumps(entitlements))
 (ROOT / "Capture/GoutouCapture.entitlements").write_bytes(plistlib.dumps({
     "com.apple.security.application-groups": ["$(GOUTOU_APP_GROUP)"]

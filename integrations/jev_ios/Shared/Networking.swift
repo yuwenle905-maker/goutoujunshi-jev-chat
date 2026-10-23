@@ -37,6 +37,10 @@ private final class RedirectGuard: NSObject, URLSessionTaskDelegate {
 }
 
 final class HTTPTransport: JSONTransport {
+    static func permitted(_ url: URL) -> Bool {
+        ["https://api.deepseek.com/chat/completions", "https://api.deepseek.com/v1/chat/completions",
+         "https://openrouter.ai/api/v1/chat/completions", "https://api.typesafe.ai/v1/systemone"].contains(url.absoluteString)
+    }
     private let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 55
@@ -48,6 +52,7 @@ final class HTTPTransport: JSONTransport {
 
     func post(_ body: [String: Any], to url: URL, key: String) async throws -> [String: Any] {
         try Task.checkCancellation()
+        guard Self.permitted(url) else { throw GoutouError.invalid("已阻止非模型服务地址；本版本仅允许所选模型的官方接口") }
         guard url.scheme == "https", url.user == nil, url.password == nil, url.query == nil, url.fragment == nil else {
             throw GoutouError.invalid("接口必须为不含账号或查询参数的 HTTPS 地址")
         }
@@ -81,6 +86,7 @@ struct ModelAPI {
     let transport: JSONTransport
     let config: AppConfig
     let secrets: ProviderSecrets
+    var memoryContext = ""
 
     static func chatURL(_ base: String) throws -> URL {
         var text = base.trimmed

@@ -11,6 +11,13 @@ struct TypingChecks {
         let path = CommandLine.arguments[1]
         let engine = PinyinEngine(tsv: try String(contentsOfFile: path, encoding: .utf8))
         check("Offline production vocabulary", engine.entryCount > 60_000)
+        let text = try String(contentsOfFile: path, encoding: .utf8)
+        let flypy = PinyinEngine(tsv: Flypy.dictionary(text))
+        for (code, word) in [("nihc", "你好"), ("vsgo", "中国"), ("ui jm".replacingOccurrences(of: " ", with: ""), "时间"), ("xp xp".replacingOccurrences(of: " ", with: ""), "谢谢"), ("lv", "绿")] {
+            check("Xiaohe \(code) contains \(word)", flypy.candidates(for: code).contains { $0.text == word && $0.consumed == code.count })
+        }
+        check("Xiaohe zero initials", Flypy.syllable("a") == "aa" && Flypy.syllable("ai") == "ai" && Flypy.syllable("ang") == "ah")
+        check("Xiaohe compound initials", Flypy.syllable("shuang") == "ul" && Flypy.syllable("zhong") == "vs" && Flypy.syllable("chi") == "ii")
         for (code, word) in [("nihao", "你好"), ("wo", "我"), ("xiexie", "谢谢"), ("mingtian", "明天"),
                              ("zhoumo", "周末"), ("pengyou", "朋友"), ("shijian", "时间"), ("lv", "绿")] {
             check("\(code) contains \(word)", engine.candidates(for: code).contains { $0.text == word && $0.consumed == code.count })

@@ -15,6 +15,11 @@ struct ConversationView: View {
     @State private var loadingImage = false
     @State private var shortcutGuide = false
     @State private var reviewAlert = false
+    @State private var chatImporter = false
+    @State private var memorySheet = false
+    @State private var sharedImports = [SharedChatImport]()
+    @State private var stagedImport: SharedChatImport?
+    @State private var importConfirmation = false
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -51,6 +56,14 @@ struct ConversationView: View {
                     }.disabled(model.working || loadingImage)
                     Button { importer = true } label: { Label("从文件选择截图", systemImage: "folder") }
                         .font(.callout).disabled(model.working || loadingImage)
+                    Button { chatImporter = true } label: { Label("导入聊天文件（TXT / CSV / JSON / ZIP）", systemImage: "doc.badge.plus") }
+                        .font(.callout).disabled(model.working || loadingImage)
+                    ForEach(sharedImports) { item in
+                        Button("接收共享内容：\(item.source)") { stagedImport = item; importConfirmation = true }
+                            .disabled(model.working)
+                    }
+                    Text("系统分享中选择“导入狗头军师”后，回到这里接收。微信内部聊天卡片若未提供正文，无法直接读取。")
+                        .font(.caption).foregroundStyle(Palette.secondary)
                     Button { shortcutGuide = true } label: { Label("设置一键截屏识别", systemImage: "viewfinder") }
                         .font(.callout).accessibilityIdentifier("screenshotShortcutGuide")
                     if loadingImage { ProgressView("正在读取所选截图…") }
@@ -101,6 +114,7 @@ struct ConversationView: View {
                     }
                     Toggle("已核对原文、双方身份与当前对象", isOn: $model.confirmed)
                         .font(.callout).disabled(model.working)
+                    Button("保存本轮记忆 / 管理当前对象历史") { memorySheet = true }.disabled(model.working)
                     if model.working {
                         HStack { ProgressView(); Text(model.status).font(.caption); Button("取消") { model.cancel() } }
                     } else {
@@ -149,6 +163,9 @@ struct ConversationView: View {
             }
         }
         .sheet(isPresented: $shortcutGuide) { ScreenshotShortcutGuide() }
+        .sheet(isPresented: $memorySheet) {
+            NavigationStack { MemoryView().toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("返回") { memorySheet = false } } } }
+        }
         .sheet(isPresented: $details) {
             if let advice = model.advice { NavigationStack { DetailView(advice: advice, transcript: model.transcript) } }
         }
@@ -158,7 +175,22 @@ struct ConversationView: View {
         .onChange(of: model.shortcutScreenshot) { data in
             if data != nil { receiveShortcutScreenshot(proxy) }
         }
-        .onAppear { receiveShortcutScreenshot(proxy) }
+        .onAppear { receiveShortcutScreenshot(proxy); loadSharedImports() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in loadSharedImports() }
+        .fileImporter(isPresented: $chatImporter, allowedContentTypes: [.plainText, .commaSeparatedText, .json, .zip], allowsMultipleSelection: false) { result in
+            do {
+                guard let url = try result.get().first else { return }
+                let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }
+                guard let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 8_000_000 else { throw GoutouError.invalid("文件超过 8 MB") }
+                stagedImport = SharedChatImport(text: try ChatImport.text(Data(contentsOf: url), filename: url.lastPathComponent), source: url.lastPathComponent)
+                importConfirmation = true
+            } catch { model.status = error.localizedDescription; reviewAlert = true }
+        }
+        .confirmationDialog("导入到当前对象“\(model.relationship.label)”的待核对区？", isPresented: $importConfirmation, titleVisibility: .visible) {
+            Button("替换待核对原文") { acceptImport(append: false) }
+            Button("追加到当前原文末尾") { acceptImport(append: true) }
+            Button("取消", role: .cancel) { stagedImport = nil }
+        } message: { Text("只在本机接收，不自动分析或保存长期记忆；请核对后主动保存。原始文件不变。") }
         .onChange(of: photo) { item in
             guard let item = item else { return }
             loadingImage = true
@@ -191,6 +223,21 @@ struct ConversationView: View {
         dismissFormKeyboard()
         model.transcript = Transcript.resolveLine(in: model.transcript, at: line.index, speaker: speaker)
         model.status = "已修改，请核对剩余消息，再重新勾选确认。"
+    }
+    private func loadSharedImports() {
+        do { sharedImports = try model.store?.importInbox.pending() ?? [] }
+        catch { model.status = "共享内容读取失败，已保留原文件：" + error.localizedDescription }
+    }
+    private func acceptImport(append: Bool) {
+        guard let item = stagedImport else { return }
+        let value = append && !model.transcript.isEmpty ? model.transcript + "\n" + item.text : item.text
+        guard value.count <= 12_000 else { model.status = "合并后超过 12000 字，请分批核对保存。"; reviewAlert = true; return }
+        model.transcript = value; model.source = "文件导入 · " + item.source; model.confirmed = false
+        if sharedImports.contains(where: { $0.id == item.id }) {
+            do { try model.store?.importInbox.remove(item.id) } catch { model.status = "已接收，待导入副本未能清理，可稍后重试。" }
+        }
+        stagedImport = nil; loadSharedImports()
+        model.status = "已导入，请核对说话人、消息顺序及当前对象，再保存记忆或分析。"
     }
     private func receiveShortcutScreenshot(_ proxy: ScrollViewProxy) {
         guard let data = model.shortcutScreenshot else { return }

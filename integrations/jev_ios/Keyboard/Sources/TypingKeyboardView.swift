@@ -8,11 +8,13 @@ final class TypingKeyboardView: UIView {
     var onDelete: (() -> Void)?
     var onMove: ((Int) -> Void)?
     var onKeyboardButtonCreated: ((UIButton) -> Void)? { didSet { renderKeys() } }
-    private var chinese = true
+    private var inputMode = UserDefaults.standard.string(forKey: "typingMode.v2") ?? "小鹤双拼"
+    private var chinese: Bool { inputMode != "英文" }
     private var uppercase = false
     private var layout: Layout = .letters
     private var composition = PinyinComposition()
     private var engine: PinyinEngine?
+    private var activeEngine: PinyinEngine? { engine }
     private var candidates = [PinyinCandidate]()
     private var lookupRevision = 0
     private let lookupQueue = DispatchQueue(label: "ai.goutoujunshi.pinyin", qos: .userInitiated)
@@ -53,10 +55,20 @@ final class TypingKeyboardView: UIView {
             candidateRow.heightAnchor.constraint(equalTo: candidateScroll.frameLayoutGuide.heightAnchor)
         ])
         renderKeys(); renderCandidates()
+        loadEngine()
+    }
+    private func loadEngine() {
+        engine = nil; lookupRevision += 1
+        guard chinese else { return }
+        let mode = inputMode
         let resource = Bundle.main.url(forResource: "pinyin", withExtension: "tsv")
         lookupQueue.async { [weak self] in
-            let engine = resource.flatMap { try? String(contentsOf: $0, encoding: .utf8) }.map(PinyinEngine.init(tsv:))
-            DispatchQueue.main.async { [weak self] in self?.engine = engine; self?.refreshCandidates() }
+            let text = resource.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+            let engine = text.map { PinyinEngine(tsv: mode == "小鹤双拼" ? Flypy.dictionary($0) : $0) }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self, self.inputMode == mode else { return }
+                self.engine = engine; self.refreshCandidates()
+            }
         }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -88,7 +100,7 @@ final class TypingKeyboardView: UIView {
         config.baseForegroundColor = KB.ink
         config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0)
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var result = incoming; result.font = .systemFont(ofSize: title.count > 1 ? 16 : 20); return result
+            var result = incoming; result.font = .systemFont(ofSize: title.count > 1 ? 15 : 24); return result
         }
         button.configuration = config
         button.layer.shadowColor = UIColor.black.cgColor
@@ -169,26 +181,33 @@ final class TypingKeyboardView: UIView {
         let alphabet = key(layout == .letters ? "123" : "ABC", identifier: "typingLayout", utility: true) { [weak self] in
             guard let self = self else { return }; self.commitComposition(); self.layout = self.layout == .letters ? .numbers : .letters; self.renderKeys()
         }
-        let language = key(chinese ? "中" : "英", identifier: "typingLanguage", utility: true) { [weak self] in
-            guard let self = self else { return }; self.commitComposition(); self.chinese.toggle(); self.renderKeys(); self.renderCandidates()
-        }
-        language.accessibilityLabel = chinese ? "中文输入，点击切换英文" : "英文输入，点击切换中文"
+        let language = key(chinese ? "中/EN" : "EN/中", identifier: "typingLanguage", utility: true) {}
+        language.menu = UIMenu(title: "输入方式", children: ["小鹤双拼", "中文全拼", "英文"].map { mode in
+            UIAction(title: mode, state: inputMode == mode ? .on : .off) { [weak self] _ in
+                guard let self = self else { return }
+                self.commitComposition(); self.inputMode = mode; self.uppercase = false
+                UserDefaults.standard.set(mode, forKey: "typingMode.v2")
+                self.renderKeys(); self.loadEngine(); self.refreshCandidates()
+            }
+        })
+        language.showsMenuAsPrimaryAction = true
+        language.accessibilityLabel = "输入方式：\(inputMode)，点击选择英文、小鹤双拼或全拼"
         let globe = key("", identifier: "typingNextKeyboard", utility: true) {}
         globe.configuration?.image = UIImage(systemName: "globe")
         globe.accessibilityLabel = "切换到其他键盘"
         onKeyboardButtonCreated?(globe)
         let punctuation = key(chinese ? "，" : ",", identifier: "typingComma") { [weak self] in self?.insertPunctuation(self?.chinese == true ? "，" : ",") }
-        let space = key("空格", identifier: "typingSpace") { [weak self] in
+        let space = key(chinese ? "空格" : "space", identifier: "typingSpace") { [weak self] in
             guard let self = self else { return }
             if self.hasComposition { self.commitComposition() } else { self.onInsert?(" ") }
         }
-        let enter = key("换行", identifier: "typingReturn", utility: true) { [weak self] in self?.commitComposition(); self?.onInsert?("\n") }
+        let enter = key(chinese ? "换行" : "return", identifier: "typingReturn", utility: true) { [weak self] in self?.commitComposition(); self?.onInsert?("\n") }
         enter.accessibilityLabel = "插入换行，不发送消息"
         let row = UIStackView(arrangedSubviews: [alphabet, globe, language, punctuation, space, enter])
         row.axis = .horizontal; row.spacing = 5; row.distribution = .fill
         alphabet.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.105).isActive = true
         globe.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.095).isActive = true
-        language.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.095).isActive = true
+        language.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.13).isActive = true
         punctuation.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.075).isActive = true
         enter.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.16).isActive = true
         space.accessibilityLabel = "空格，拼音输入时选第一个完整候选"
@@ -206,7 +225,7 @@ final class TypingKeyboardView: UIView {
     private func commitComposition() {
         guard hasComposition else { return }
         // Never insert an incomplete leading-word candidate while dropping the remaining syllables.
-        let available = candidates.isEmpty ? (engine?.candidates(for: composition.raw) ?? []) : candidates
+        let available = candidates.isEmpty ? (activeEngine?.candidates(for: composition.raw) ?? []) : candidates
         if let candidate = available.first, candidate.consumed == composition.raw.count,
            let text = composition.select(candidate) { onInsert?(text) }
         else { let text = composition.raw; composition.clear(); onInsert?(text) }
@@ -216,7 +235,7 @@ final class TypingKeyboardView: UIView {
         lookupRevision += 1
         let revision = lookupRevision, raw = composition.raw
         candidates = []; renderCandidates()
-        guard !raw.isEmpty, let engine = engine else { return }
+        guard !raw.isEmpty, let engine = activeEngine else { return }
         lookupQueue.async { [weak self] in
             let result = engine.candidates(for: raw)
             DispatchQueue.main.async { [weak self] in
@@ -226,16 +245,14 @@ final class TypingKeyboardView: UIView {
         }
     }
     private func renderCandidates() {
-        preedit.text = composition.raw.isEmpty ? (chinese ? "中文拼音 · 本地输入" : "英文 · 本地输入") : composition.raw
+        preedit.text = composition.raw.isEmpty ? "\(inputMode) · 本地输入 · 点中/EN切换" : composition.raw
         preedit.textColor = KB.secondary
         candidateRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
         candidateScroll.contentOffset = .zero
         if composition.raw.isEmpty {
-            for value in (chinese ? ["。", "？", "！", "😊", "👍", "❤️"] : [".", "?", "!", "😊", "👍", "❤️"]) {
+            for value in (chinese ? ["，", "。", "？"] : ["I", "The", "I'm"]) {
                 candidateRow.addArrangedSubview(key(value) { [weak self] in self?.insertPunctuation(value) })
             }
-            candidateRow.addArrangedSubview(key("←", identifier: "typingCursorLeft") { [weak self] in self?.onMove?(-1) })
-            candidateRow.addArrangedSubview(key("→", identifier: "typingCursorRight") { [weak self] in self?.onMove?(1) })
         } else {
             for (index, candidate) in candidates.enumerated() {
                 let button = key(candidate.text, identifier: "pinyinCandidate_\(index)") { [weak self] in
@@ -256,6 +273,7 @@ final class TypingKeyboardView: UIView {
             let width = (title as NSString).size(withAttributes: [.font: UIFont.systemFont(ofSize: 20)]).width + 24
             button.widthAnchor.constraint(equalToConstant: max(44, width)).isActive = true
             if var config = button.configuration {
+                config.baseBackgroundColor = .clear
                 config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12)
                 config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
                     var result = incoming; result.font = .systemFont(ofSize: 20); return result

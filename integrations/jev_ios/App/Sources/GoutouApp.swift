@@ -96,7 +96,10 @@ final class AppModel: ObservableObject {
         }
     }
     func cancel() { invalidate(clear: false); status = "已取消；已发出的服务请求无法撤回。" }
-    func api() throws -> ModelAPI { ModelAPI(transport: transport, config: config, secrets: try CredentialVault.load()) }
+    func api() throws -> ModelAPI {
+        let context = try store?.memoryStore().context(relationship.id) ?? ""
+        return ModelAPI(transport: transport, config: config, secrets: try CredentialVault.load(), memoryContext: context)
+    }
 
     func analyze(rewrite: Bool = false) {
         guard !working else { return }

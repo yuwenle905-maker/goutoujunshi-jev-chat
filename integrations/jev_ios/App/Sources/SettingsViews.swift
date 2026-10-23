@@ -97,6 +97,8 @@ struct ProviderView: View {
                 Text("密钥保存在 App 与键盘共享的本机钥匙串，已存 Key 不回显；空白表示保留原 Key。聊天仅在你确认分析时发送到所选接口。")
             }
             Section("本地数据") {
+                Text("隐私：本地打字与导入不联网。只有你点击测试、分析、改写、生成摘要或确认云端识图时，才向相应的 DeepSeek / OpenRouter / TypeSafe 接口发送必要内容。此版本没有原作者收集服务器、广告或统计 SDK。允许完全访问会赋予第三方键盘联网和共享数据能力，请只安装可信来源的版本。")
+                    .font(.caption).foregroundStyle(Palette.secondary)
                 Button("清除键盘暂存与等待取用的内容") {
                     model.store?.clearHandoff(); model.store?.captureMailbox.clear(); model.store?.clearKeyboardSession()
                     message = "已清除键盘本轮暂存、临时交接与截屏内容"
@@ -238,6 +240,7 @@ struct RelationshipView: View {
                 Text("只保存你主动填写的对象资料，不保存整份聊天。分析时会把当前对象的阶段、目标、背景与本轮原文交给所选模型。键盘无法自动识别聊天对象，换会话后请手动选择。")
             }
             Section("已保存的对象") {
+                NavigationLink("当前对象的长期记忆、摘要与导出") { MemoryView() }
                 Button("新建对象") { draft = Relationship(); archive = true }
                 ForEach(profiles) { profile in
                     Button { draft = profile; archive = true; message = "已载入，点保存后应用到键盘。" } label: {
@@ -256,7 +259,10 @@ struct RelationshipView: View {
             .modifier(FormKeyboardDismissal())
             .onAppear { draft = model.relationship; profiles = model.store?.archived() ?? [] }
             .confirmationDialog("删除所有本机对象资料？", isPresented: $deleteAll, titleVisibility: .visible) {
-                Button("删除所有资料", role: .destructive) { model.store?.clearProfiles(); model.reload(); draft = model.relationship; profiles = [] }
+                Button("删除所有资料", role: .destructive) {
+                    do { try model.store?.clearProfiles(); model.reload(); draft = model.relationship; profiles = [] }
+                    catch { message = error.localizedDescription }
+                }
             }
     }
 }

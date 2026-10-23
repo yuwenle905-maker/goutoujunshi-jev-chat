@@ -1,13 +1,13 @@
 import UIKit
 
 enum KB {
-    static let primary = BrandTheme.primary
-    static let onPrimary = BrandTheme.onPrimary
-    static let ink = BrandTheme.text
-    static let secondary = BrandTheme.secondaryText
-    static let cream = BrandTheme.background
-    static let surface = BrandTheme.surface
-    static let highlight = BrandTheme.highlight
+    static let primary = UIColor.systemBlue
+    static let onPrimary = UIColor.white
+    static let ink = UIColor.label
+    static let secondary = UIColor.secondaryLabel
+    static let cream = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.16, alpha: 1) : UIColor(red: 0.82, green: 0.83, blue: 0.85, alpha: 1) }
+    static let surface = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.36, alpha: 1) : .white }
+    static let highlight = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.27, alpha: 1) : UIColor(red: 0.68, green: 0.70, blue: 0.74, alpha: 1) }
     static func label(_ text: String, size: CGFloat, bold: Bool = false) -> UILabel {
         let label = UILabel()
         label.text = text; label.numberOfLines = 0; label.textColor = ink

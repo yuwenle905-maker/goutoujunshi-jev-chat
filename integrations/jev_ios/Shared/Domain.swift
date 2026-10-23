@@ -44,6 +44,7 @@ enum OCRProvider: String, Codable, CaseIterable {
 }
 
 struct AppConfig: Codable, Equatable {
+    static let deepseekModels = ["deepseek-flash", "deepseek-v4-pro"]
     var judge: JudgeProvider = .deepseek
     var reply: ReplyProvider = .deepseek
     var ocr: OCRProvider = .local
@@ -71,7 +72,25 @@ struct AppConfig: Codable, Equatable {
 
 struct Relationship: Codable, Equatable, Identifiable {
     static let stages = ["未填写", "初识", "了解中", "暧昧", "约会中", "伴侣", "关系结束"]
-    static let goals = ["自然接话", "主动邀约", "澄清关系", "修复冲突", "减少投入", "结束联系"]
+    static let goals = ["自然接话", "重新破冰", "拉近距离", "轻松调情", "暧昧升温", "推进关系",
+                        "主动邀约", "确认心意", "澄清关系", "修复冲突", "减少投入", "结束联系"]
+    static let goalGuidance: [String: String] = [
+        "自然接话": "先回应对方正在说的具体内容，自然延续话题，不强行升级关系。",
+        "重新破冰": "在没有明确拒绝联系的前提下，用真实近况或共同话题重新开启一次轻量联系，不连发追问。",
+        "拉近距离": "通过真实分享、共同兴趣和适度关心增加了解与熟悉感，不突然使用亲昵称呼或索取情绪回应。",
+        "轻松调情": "根据双方接梗和互惠的依据，给一句轻松、有分寸的玩笑或欣赏；不尬撩、不冒犯，也不把礼貌当好感。",
+        "暧昧升温": "在已有双向好感或暧昧互动时，增加一点个人化欣赏和亲近表达，观察对方是否接住；不凭空假定亲密。",
+        "推进关系": "结合当前阶段与双方投入，主动提出一个具体、可拒绝的下一步，例如增加交流或见面；不要直接跳到承诺或逼对方表态。",
+        "主动邀约": "结合共同兴趣与可行时间提出明确、低压力、可拒绝的邀约；时间未知先确认，不编造安排。",
+        "确认心意": "真诚表达自己的好感，并询问对方是否愿意继续了解，给出不确定或拒绝的空间，不要求即时答复。",
+        "澄清关系": "澄清双方对当前关系、期待或边界的一个关键分歧，不审问、不替对方定义关系。",
+        "修复冲突": "先承接具体感受、说明责任和事实，再提出可执行的修复，不用调情掩盖冲突。",
+        "减少投入": "按实际互惠调整联系和付出，把主动权交还一部分，不通过失联、嫉妒或冷暴力试探。",
+        "结束联系": "清楚、简短地结束私人推进，尊重边界，不威胁、不反复发送告别。",
+    ]
+    static func guidance(for goal: String) -> String {
+        goalGuidance[goal] ?? "先回应具体内容，未知保持未知。"
+    }
     var id = UUID().uuidString
     var label = "当前对象"
     var stage = "未填写"
@@ -91,13 +110,42 @@ struct Transcript: Equatable {
     var text: String
     var confirmed: Bool
 
+    struct PendingLine: Identifiable {
+        var index: Int
+        var text: String
+        var id: Int { index }
+    }
+    static func pendingLines(in text: String) -> [PendingLine] {
+        text.components(separatedBy: .newlines).enumerated().compactMap { index, line in
+            guard line.contains("说话人待确认") || line.contains("[OCR待核对]") else { return nil }
+            return PendingLine(index: index, text: line)
+        }
+    }
+    static func resolveLine(in text: String, at index: Int, speaker: String?) -> String {
+        var lines = text.components(separatedBy: .newlines)
+        guard lines.indices.contains(index), pendingLines(in: text).contains(where: { $0.index == index }) else { return text }
+        if let speaker = speaker {
+            guard ["我", "对方"].contains(speaker) else { return text }
+            var content = lines[index].trimmed
+            for prefix in ["说话人待确认：", "说话人待确认:"] where content.hasPrefix(prefix) {
+                content = String(content.dropFirst(prefix.count))
+            }
+            content = content.replacingOccurrences(of: "[OCR待核对]", with: "").trimmed
+            lines[index] = speaker + "：" + content
+        } else {
+            lines.remove(at: index)
+        }
+        return lines.joined(separator: "\n")
+    }
+
     func validate() throws {
         guard confirmed else { throw GoutouError.invalid("请先核对原文和双方身份，再确认分析") }
         guard !text.trimmed.isEmpty, text.count <= 12_000 else {
             throw GoutouError.invalid("请保留与当前问题有关的 1–12000 字对话")
         }
-        guard !text.contains("[OCR待核对]"), !text.contains("说话人待确认") else {
-            throw GoutouError.invalid("还有待核对的说话人或 OCR 标记，请先修正")
+        let pending = Self.pendingLines(in: text)
+        guard pending.isEmpty else {
+            throw GoutouError.invalid("还有 \(pending.count) 行待核对。请在“待确认的消息”中选择“我说的／对方说的”；时间、昵称等非聊天内容可手动移除，然后重新勾选核对。")
         }
     }
     var myLines: [String] {

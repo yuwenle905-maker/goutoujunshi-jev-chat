@@ -14,6 +14,7 @@ struct ConversationView: View {
     @State private var screenshotPreview: UIImage?
     @State private var loadingImage = false
     @State private var shortcutGuide = false
+    @State private var reviewAlert = false
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -77,19 +78,53 @@ struct ConversationView: View {
                     TextEditor(text: $model.transcript).frame(minHeight: 200).padding(8)
                         .scrollContentBackground(.hidden).background(Palette.cream).clipShape(RoundedRectangle(cornerRadius: 14))
                         .accessibilityIdentifier("transcriptEditor")
+                    let pending = Transcript.pendingLines(in: model.transcript)
+                    if !pending.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Label("待确认的消息（\(pending.count) 行）", systemImage: "exclamationmark.circle")
+                                .font(.headline).foregroundStyle(Palette.accent)
+                            Text("逐条指定说话人；昵称、时间等非聊天内容可移除。不会自动猜测或删除。")
+                                .font(.caption).foregroundStyle(Palette.secondary)
+                            ForEach(pending) { line in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(line.text).font(.callout)
+                                    HStack {
+                                        Button("我说的") { resolve(line, speaker: "我") }
+                                        Button("对方说的") { resolve(line, speaker: "对方") }
+                                    }.buttonStyle(.bordered)
+                                    Button("非聊天内容，移除") { resolve(line, speaker: nil) }
+                                        .font(.caption)
+                                }
+                                Divider()
+                            }
+                        }.disabled(model.working)
+                    }
                     Toggle("已核对原文、双方身份与当前对象", isOn: $model.confirmed)
                         .font(.callout).disabled(model.working)
                     if model.working {
-                        HStack { ProgressView(); Button("取消") { model.cancel() } }
+                        HStack { ProgressView(); Text(model.status).font(.caption); Button("取消") { model.cancel() } }
                     } else {
-                        Button("确认并分析") { model.analyze() }.buttonStyle(BrandPrimaryButtonStyle())
+                        Button("确认并分析") {
+                            dismissFormKeyboard()
+                            do {
+                                try Transcript(text: model.transcript, confirmed: model.confirmed).validate()
+                                model.analyze()
+                                if !model.working { reviewAlert = true }
+                            } catch {
+                                model.status = error.localizedDescription
+                                reviewAlert = true
+                            }
+                        }.buttonStyle(BrandPrimaryButtonStyle())
                             .disabled(!model.confirmed || model.transcript.trimmed.isEmpty || model.store == nil)
                             .accessibilityIdentifier("analyzeButton")
+                        if !model.status.isEmpty {
+                            Text(model.status).font(.callout).foregroundStyle(Palette.accent).textSelection(.enabled)
+                        }
                     }
                 }.card().id("transcriptReview")
 
                 if let advice = model.advice {
-                    AdviceSummary(advice: advice)
+                    AdviceSummary(advice: advice).id("analysisResult")
                     HStack {
                         Button("更像我一点") { model.analyze(rewrite: true) }.disabled(model.working || model.demo || advice.candidates.isEmpty)
                         Spacer()
@@ -104,6 +139,15 @@ struct ConversationView: View {
             }.padding()
         }
         .background(Palette.cream)
+        .modifier(FormKeyboardDismissal())
+        .alert("还不能开始分析", isPresented: $reviewAlert) {
+            Button("知道了", role: .cancel) { }
+        } message: { Text(model.status) }
+        .onChange(of: model.working) { working in
+            if !working, model.advice != nil {
+                withAnimation { proxy.scrollTo("analysisResult", anchor: .top) }
+            }
+        }
         .sheet(isPresented: $shortcutGuide) { ScreenshotShortcutGuide() }
         .sheet(isPresented: $details) {
             if let advice = model.advice { NavigationStack { DetailView(advice: advice, transcript: model.transcript) } }
@@ -142,6 +186,11 @@ struct ConversationView: View {
             Button("取消", role: .cancel) { pendingImage = nil; screenshotPreview = nil }
         } message: { Text("只发送这张截图，会产生接口用量。识别后仍需核对原文和双方身份。") }
         }
+    }
+    private func resolve(_ line: Transcript.PendingLine, speaker: String?) {
+        dismissFormKeyboard()
+        model.transcript = Transcript.resolveLine(in: model.transcript, at: line.index, speaker: speaker)
+        model.status = "已修改，请核对剩余消息，再重新勾选确认。"
     }
     private func receiveShortcutScreenshot(_ proxy: ScrollViewProxy) {
         guard let data = model.shortcutScreenshot else { return }

@@ -72,7 +72,23 @@ struct CoreChecks {
         try check("Seven project strategies", Strategy.allCases.count == 7)
         try check("Natural voice guide bundled", GoutouGuidance.common.contains("先像本人") && GoutouGuidance.common.contains("别演自然"))
         try check("Repair guide bundled", GoutouGuidance.scene["修复冲突"] != nil)
-        try check("Goal mapping retained", Relationship.goals.count == 6 && Relationship.stages.count == 7)
+        let legacyGoals = ["自然接话", "主动邀约", "澄清关系", "修复冲突", "减少投入", "结束联系"]
+        try check("Existing goals and stages remain compatible", legacyGoals.allSatisfy(Relationship.goals.contains) && Relationship.stages.count == 7)
+        let pipeline = GoutouPipeline(api: ModelAPI(transport: MockTransport([]), config: AppConfig(), secrets: secrets))
+        for goal in Relationship.goals {
+            var relationship = Relationship(); relationship.goal = goal
+            let restored = try JSONDecoder().decode(Relationship.self, from: JSONEncoder().encode(relationship))
+            try restored.validate()
+            let payload = try ModelJSON.object(pipeline.input(Transcript(text: "我：今天过得怎么样？", confirmed: true), restored))
+            try check("Goal survives persistence and reaches judge: \(goal)", restored.goal == goal && payload["goal"] as? String == goal && payload["goal_guide"] as? String == Relationship.goalGuidance[goal])
+            try check("Reply receives goal guidance: \(goal)", GoutouGuidance.analysis(config: AppConfig(), strategy: .nudge, goal: goal).contains(Relationship.guidance(for: goal)))
+        }
+        try check("Flirting and relationship progression have different instructions", Relationship.guidance(for: "暧昧升温") != Relationship.guidance(for: "推进关系"))
+        var pro = AppConfig(); pro.deepseekModel = "deepseek-v4-pro"; try pro.validate()
+        let restoredPro = try JSONDecoder().decode(AppConfig.self, from: JSONEncoder().encode(pro))
+        try check("Pro choice survives persistence", restoredPro.deepseekModel == "deepseek-v4-pro")
+        var customModel = AppConfig(); customModel.deepseekModel = "future-custom-model"; try customModel.validate()
+        try check("Custom models remain supported", customModel.deepseekModel == "future-custom-model")
         try check("DeepSeek root URL", try ModelAPI.chatURL("https://api.deepseek.com").absoluteString == "https://api.deepseek.com/chat/completions")
         try check("DeepSeek v1 URL", try ModelAPI.chatURL("https://api.deepseek.com/v1/").absoluteString == "https://api.deepseek.com/v1/chat/completions")
         try check("Full action URL", try ModelAPI.chatURL("https://openrouter.ai/api/v1/chat/completions").path == "/api/v1/chat/completions")
@@ -81,6 +97,15 @@ struct CoreChecks {
         try rejects("Reject query in URL") { _ = try ModelAPI.chatURL("https://untrusted.example?k=secret") }
         try rejects("Require transcript review") { try Transcript(text: "对方：忙", confirmed: false).validate() }
         try rejects("Reject pending OCR labels") { try Transcript(text: "说话人待确认：忙", confirmed: true).validate() }
+        let pendingText = "我：你好\n说话人待确认：今天有空\n说话人待确认：17:37\n对方：好"
+        try check("Review finds pending lines without discarding text", Transcript.pendingLines(in: pendingText).map(\.index) == [1, 2])
+        let assigned = Transcript.resolveLine(in: pendingText, at: 1, speaker: "对方")
+        try check("Speaker assignment preserves other messages", assigned == "我：你好\n对方：今天有空\n说话人待确认：17:37\n对方：好")
+        try rejects("Partial review still blocks API input") { try Transcript(text: assigned, confirmed: true).validate() }
+        let reviewed = Transcript.resolveLine(in: assigned, at: 2, speaker: nil)
+        try check("Only explicitly removed metadata disappears", reviewed == "我：你好\n对方：今天有空\n对方：好")
+        try Transcript(text: reviewed, confirmed: true).validate()
+        try check("Review cannot rewrite confirmed lines", Transcript.resolveLine(in: pendingText, at: 0, speaker: "对方") == pendingText)
         try rejects("Reject empty transcript") { try Transcript(text: " ", confirmed: true).validate() }
         try check("Learn only my lines", Transcript(text: "我：嗯\n对方：哈哈\n我:好", confirmed: true).myLines == ["我：嗯", "我:好"])
         try rejects("Reject invalid candidate preference") { var config = AppConfig(); config.count = 4; try config.validate() }

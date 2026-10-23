@@ -6,6 +6,10 @@ on:
     paths:
       - .github/workflows/ios-trollstore.yml
       - integrations/jev_ios/tools/package_trollstore.py
+      - integrations/jev_ios/Shared/**
+      - integrations/jev_ios/App/**
+      - integrations/jev_ios/Keyboard/**
+      - integrations/jev_ios/Tests/**
 
 permissions:
   contents: read

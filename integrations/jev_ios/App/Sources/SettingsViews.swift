@@ -1,4 +1,27 @@
 import SwiftUI
+import UIKit
+
+func dismissFormKeyboard() {
+    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+}
+
+struct FormKeyboardDismissal: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .scrollDismissesKeyboard(.interactively)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") { dismissFormKeyboard() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { dismissFormKeyboard() } label: {
+                        Label("收起键盘", systemImage: "keyboard.chevron.compact.down")
+                    }.accessibilityIdentifier("dismissFormKeyboard")
+                }
+            }
+    }
+}
 
 struct ProviderView: View {
     @EnvironmentObject var model: AppModel
@@ -11,6 +34,7 @@ struct ProviderView: View {
     @State private var testing = false
     @State private var testTask: Task<Void, Never>?
     @State private var testRevision = 0
+    @State private var customDeepseekModel = false
 
     var body: some View {
         Form {
@@ -23,7 +47,16 @@ struct ProviderView: View {
             }
             Section("DeepSeek 官方") {
                 Text("https://api.deepseek.com").font(.caption).foregroundStyle(Palette.secondary)
-                modelField("模型 ID", value: $draft.deepseekModel)
+                Picker("DeepSeek 模型", selection: deepseekSelection) {
+                    ForEach(AppConfig.deepseekModels, id: \.self) { Text($0).tag($0) }
+                    Text("自定义模型 ID").tag("custom")
+                }.disabled(testing)
+                if customDeepseekModel {
+                    modelField("自定义模型 ID", value: $draft.deepseekModel)
+                } else {
+                    Text("可随时切换模型，测试后保存并应用；原有 Key 无需重新填写。")
+                        .font(.caption).foregroundStyle(Palette.secondary)
+                }
                 keyField("deepseek", value: $deepseekKey)
                 testButton("测试 DeepSeek", provider: .deepseek)
             }
@@ -43,6 +76,10 @@ struct ProviderView: View {
             }
             Section("截图识别") {
                 Picker("识别方式", selection: $draft.ocr) { ForEach(OCRProvider.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
+                if draft.ocr == .deepseek && draft.deepseekModel == "deepseek-v4-pro" {
+                    Text("当前 Pro 模型不支持图片输入。请改选 Apple Vision 本地识别，或选择支持图片的模型。")
+                        .font(.caption).foregroundStyle(Palette.secondary)
+                }
                 Text("Apple Vision 在手机本地识别。云端识图会发送你选的截图，使用对应服务的 Key 并产生用量；键盘自身不截屏，日常拼音和英文输入在本机完成。")
                     .font(.caption).foregroundStyle(Palette.secondary)
             }
@@ -68,12 +105,20 @@ struct ProviderView: View {
             }
         }
         .scrollContentBackground(.hidden).background(Palette.cream)
-        .onAppear { draft = model.config; refreshKeys() }
+        .modifier(FormKeyboardDismissal())
+        .onAppear { draft = model.config; customDeepseekModel = !AppConfig.deepseekModels.contains(draft.deepseekModel); refreshKeys() }
         .onDisappear { cancelTest(); deepseekKey = ""; openrouterKey = ""; jevKey = "" }
     }
 
     private func cancelTest() {
         testRevision += 1; testTask?.cancel(); testTask = nil; testing = false
+    }
+    private var deepseekSelection: Binding<String> {
+        Binding(get: { customDeepseekModel ? "custom" : draft.deepseekModel }, set: { selection in
+            dismissFormKeyboard()
+            customDeepseekModel = selection == "custom"
+            if !customDeepseekModel { draft.deepseekModel = selection }
+        })
     }
     private func modelField(_ title: String, value: Binding<String>) -> some View {
         TextField(title, text: value).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -105,6 +150,7 @@ struct ProviderView: View {
         return result
     }
     private func save() {
+        dismissFormKeyboard()
         do {
             try draft.validate()
             guard let store = model.store else { throw GoutouError.invalid("App Group 未连接") }
@@ -173,10 +219,12 @@ struct RelationshipView: View {
                 TextField("称呼或代号", text: $draft.label)
                 Picker("关系阶段", selection: $draft.stage) { ForEach(Relationship.stages, id: \.self) { Text($0).tag($0) } }
                 Picker("本轮目标", selection: $draft.goal) { ForEach(Relationship.goals, id: \.self) { Text($0).tag($0) } }
+                Text(Relationship.guidance(for: draft.goal)).font(.caption).foregroundStyle(Palette.secondary)
                 TextField("最近发生了什么（最多 200 字）", text: $draft.background, axis: .vertical).lineLimit(3...6)
                 TextField("需要遵守的边界或备注（最多 200 字）", text: $draft.notes, axis: .vertical).lineLimit(2...4)
                 Toggle("同时保存为可切换的对象档案", isOn: $archive)
                 Button("保存当前对象与目标") {
+                    dismissFormKeyboard()
                     do {
                         guard let store = model.store else { throw GoutouError.invalid("共享配置未连接") }
                         try store.saveRelationship(draft, archive: archive); model.reload(); profiles = store.archived()
@@ -205,6 +253,7 @@ struct RelationshipView: View {
                 Button("删除所有对象资料", role: .destructive) { deleteAll = true }
             }
         }.scrollContentBackground(.hidden).background(Palette.cream)
+            .modifier(FormKeyboardDismissal())
             .onAppear { draft = model.relationship; profiles = model.store?.archived() ?? [] }
             .confirmationDialog("删除所有本机对象资料？", isPresented: $deleteAll, titleVisibility: .visible) {
                 Button("删除所有资料", role: .destructive) { model.store?.clearProfiles(); model.reload(); draft = model.relationship; profiles = [] }

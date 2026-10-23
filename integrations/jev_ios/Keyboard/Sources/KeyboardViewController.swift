@@ -474,7 +474,7 @@ final class KeyboardViewController: UIInputViewController {
             } else {
                 content.addArrangedSubview(KB.button("屏幕捕获（实验）", icon: "record.circle") { [weak self] in
                     guard let self = self else { return }
-                    self.openScreenshot(); self.showBroadcastExperiment = true
+                    self.openScreenshot(); self.showScreenshotHelp = true; self.showBroadcastExperiment = true
                     self.notice = "这是广播取帧实验；还需点圆形按钮并由你确认系统授权。"
                     self.render()
                 })

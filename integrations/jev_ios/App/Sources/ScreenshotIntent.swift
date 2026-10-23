@@ -45,7 +45,7 @@ struct SendChatScreenshotToKeyboardIntent: AppIntent {
         let store = try GoutouStore()
         guard let request = store.captureMailbox.request(),
               request.relationship == store.relationship(), request.config == store.config() else {
-            throw GoutouError.invalid("请先切换到狗头军师键盘，点“识图”进入等待页，再运行这个快捷指令。等待有效期为 90 秒。")
+            throw GoutouError.invalid("请先切换到狗头军师键盘，点“识图”→“收起键盘后截屏”或“小面板等待”，再运行这个快捷指令。等待有效期为 90 秒。")
         }
         do {
             let jpeg = try LocalOCR.boundedJPEG(screenshot.data, maxPixelSize: 1600,

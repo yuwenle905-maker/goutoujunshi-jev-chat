@@ -8,8 +8,8 @@ struct ScreenshotShortcutGuide: View {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 10) {
                         Label("截屏后，文字直接回键盘", systemImage: "viewfinder").font(.title2.bold())
-                        Text("在聊天中切换到狗头军师键盘，点顶部“识图”，再双击系统悬浮球运行截图快捷指令。识别完成后留在聊天页核对文字。")
-                        Text("识图方式沿用配置页：Apple Vision 在本机识别；DeepSeek 或 OpenRouter 先在键盘显示截图预览，点“发送截图并识别”后上传。分析前仍需核对双方发言。只读取键盘上方的聊天区域。")
+                        Text("在聊天中切换到狗头军师键盘，点顶部“识图”→“收起键盘后截屏”。等键盘收起，再双击系统悬浮球运行截图快捷指令；完成后点聊天输入框回到键盘核对。")
+                        Text("识图方式沿用配置页：Apple Vision 在本机识别；DeepSeek 或 OpenRouter 先在键盘显示截图预览，点“发送截图并识别”后上传。分析前仍需核对双方发言。收起键盘截屏时读取完整可见聊天画面；小面板等待时裁掉底部键盘区域。")
                             .font(.callout).foregroundStyle(Palette.secondary)
                     }.card()
                     VStack(alignment: .leading, spacing: 14) {

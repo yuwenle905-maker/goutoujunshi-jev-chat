@@ -592,8 +592,7 @@ final class KeyboardViewController: UIInputViewController {
         content.addArrangedSubview(KB.label("点一行可修改说话人，或忽略标题等非聊天文字。", size: 12))
         content.addArrangedSubview(KB.button("复制原文供核对", icon: "doc.on.doc") { [weak self] in
             guard let self = self else { return }
-            UIPasteboard.general.string = self.transcript
-            self.footer.text = "已复制；可到狗头军师 App 的核对区粘贴修正。"
+            self.copyText(self.transcript, success: "已复制原文；请到狗头军师 App 核对区粘贴修正，不要发给聊天对象。")
         })
         content.addArrangedSubview(KB.label("需修改错字：复制原文，到主 App 核对区编辑。不要把待核对原文发给聊天对象。", size: 12))
         content.addArrangedSubview(KB.row([
@@ -725,9 +724,19 @@ final class KeyboardViewController: UIInputViewController {
                 else { self.expandedReasons.insert(index) }
                 self.render()
             }
+            let copy = KB.button("复制", icon: "doc.on.doc")
+            copy.accessibilityIdentifier = "copyCandidate_\(index)"
+            copy.configuration?.baseBackgroundColor = KB.surface
+            copy.addAction(UIAction { [weak self, weak copy] _ in
+                guard let self = self else { return }
+                if self.copyText(candidate.text, success: "已复制回复。长按聊天输入框选择粘贴，或直接点“填入草稿”。") {
+                    copy?.configuration?.title = "已复制 ✓"
+                    copy?.accessibilityLabel = "回复已复制到剪贴板"
+                }
+            }, for: .touchUpInside)
             var views: [UIView] = [
                 KB.label(title, size: 14, bold: true), KB.label(candidate.text, size: 18),
-                KB.row([KB.button("复制") { UIPasteboard.general.string = candidate.text },
+                KB.row([copy,
                         KB.button("填入草稿", primary: true) { [weak self] in self?.confirmInsert(candidate.text) }]), reason
             ]
             if expandedReasons.contains(index) {
@@ -741,6 +750,22 @@ final class KeyboardViewController: UIInputViewController {
             KB.button("详细分析") { [weak self] in self?.mode = .details; self?.render() }
         ]))
         content.addArrangedSubview(KB.button("清空本轮") { [weak self] in self?.clearRound() })
+    }
+    @discardableResult
+    private func copyText(_ text: String, success: String) -> Bool {
+        guard hasFullAccess else {
+            notice = "复制需要键盘完全访问：设置→通用→键盘→狗头军师→允许完全访问。也可直接点“填入草稿”。"
+            footer.text = notice; return false
+        }
+        let pasteboard = UIPasteboard.general
+        let previous = pasteboard.changeCount
+        pasteboard.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true])
+        guard pasteboard.changeCount != previous else {
+            notice = "系统未确认剪贴板写入，请检查完全访问，或使用“填入草稿”。"
+            footer.text = notice; return false
+        }
+        notice = success; footer.text = success
+        return true
     }
     private func detailView() {
         guard let advice = advice else { return }

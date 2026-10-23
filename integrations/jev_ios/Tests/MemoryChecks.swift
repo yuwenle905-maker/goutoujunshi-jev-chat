@@ -31,12 +31,13 @@ struct MemoryChecks {
         try check("Repeated real message may be retained", try memory.merge("alice", plan: repeated, skipOverlap: false) == 1)
         let loaded = try memory.load("alice")
         try memory.saveSummary("alice", text: "对方说周六下午有空，邀约尚未确认。", expectedRevision: loaded.revision)
+        try rejects("Stale summary cannot overwrite new memory") { try memory.saveSummary("alice", text: "旧草稿", expectedRevision: loaded.revision) }
         try check("Approved summary reaches context", try memory.context("alice").contains("邀约尚未确认"))
         try memory.deleteMessage("alice", messageID: loaded.messages[0].id)
         try check("Deleting a source invalidates current summary", try memory.load("alice").summary.isEmpty)
         let files = try FileManager.default.contentsOfDirectory(at: directory.appendingPathComponent("PersonMemory"), includingPropertiesForKeys: nil).filter { $0.pathExtension == "bin" }
         let encrypted = try Data(contentsOf: files[0])
-        try check("Disk file does not contain chat plaintext", encrypted.range(of: Data("周六有空吗".utf8)) == nil)
+        try check("Disk file does not contain chat plaintext", encrypted.range(of: Data("下午有空".utf8)) == nil)
         let reopened = ChatMemoryStore(container: directory, key: key)
         try check("Encrypted memory survives reopening", try reopened.load("alice").messages.count == 3)
         let wrong = ChatMemoryStore(container: directory, key: SymmetricKey(size: .bits256))
@@ -47,6 +48,17 @@ struct MemoryChecks {
         let csv = "sender,message,timestamp\nme,你好,2026-10-01\nother,有空吗,2026-10-02"
         try check("CSV preserves explicit sender and timestamp", try ChatImport.text(Data(csv.utf8), filename: "chat.csv").contains("对方：[2026-10-02] 有空吗"))
         try check("Plain text does not guess sender", try ChatImport.text(Data("某人说的话".utf8), filename: "chat.txt") == "说话人待确认：某人说的话")
+        let zipFixtures = [
+            "UEsDBBQAAAAAAAqYV11dGY2cHwAAAB8AAAAIAAAAY2hhdC50eHTmiJHvvJrkvaDlpb0K5a+55pa577ya5pyJ56m65ZCXUEsBAhQAFAAAAAAACphXXV0ZjZwfAAAAHwAAAAgAAAAAAAAAAAAAAIABAAAAAGNoYXQudHh0UEsFBgAAAAABAAEANgAAAEUAAAAAAA==",
+            "UEsDBBQAAAAIAAqYV11dGY2cJAAAAB8AAAAIAAAAY2hhdC50eHQBHwDg/+aIke+8muS9oOWlvQrlr7nmlrnvvJrmnInnqbrlkJdQSwECFAAUAAAACAAKmFddXRmNnCQAAAAfAAAACAAAAAAAAAAAAAAAgAEAAAAAY2hhdC50eHRQSwUGAAAAAAEAAQA2AAAASgAAAAAA"
+        ]
+        for fixture in zipFixtures {
+            var zipped = Data(base64Encoded: fixture)!
+            try check("Stored and deflate ZIP preserve Chinese transcript", try ChatImport.text(zipped, filename: "chat.zip") == "我：你好\n对方：有空吗")
+            zipped[38] ^= 1
+            try rejects("ZIP corruption does not enter memory") { _ = try ChatImport.text(zipped, filename: "chat.zip") }
+        }
+        try check("JSON imports explicit roles without guessing", try ChatImport.text(Data("[{\"sender\":\"other\",\"message\":\"下周见\"}]".utf8), filename: "chat.json") == "对方：下周见")
         try rejects("Broken ZIP is not partially imported") { _ = try ChatImport.text(Data("invalid".utf8), filename: "chat.zip") }
         try rejects("Unsupported file is not treated as text") { _ = try ChatImport.text(Data("x".utf8), filename: "chat.exe") }
         try check("Network allowlist rejects author and unrelated services", !HTTPTransport.permitted(URL(string: "https://example.com/collect")!))

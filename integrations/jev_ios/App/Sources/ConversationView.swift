@@ -64,6 +64,8 @@ struct ConversationView: View {
                     }
                     Text("系统分享中选择“导入狗头军师”后，回到这里接收。微信内部聊天卡片若未提供正文，无法直接读取。")
                         .font(.caption).foregroundStyle(Palette.secondary)
+                    Text("文件导入只读取聊天文字；ZIP 内的图片和视频不会加入记忆。每批最多 12000 字，较长记录请按日期分批。")
+                        .font(.caption).foregroundStyle(Palette.secondary)
                     Button { shortcutGuide = true } label: { Label("设置一键截屏识别", systemImage: "viewfinder") }
                         .font(.callout).accessibilityIdentifier("screenshotShortcutGuide")
                     if loadingImage { ProgressView("正在读取所选截图…") }

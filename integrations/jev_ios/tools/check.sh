@@ -10,6 +10,9 @@ swiftc -module-cache-path "$check_dir/modules" -parse-as-library \
   Shared/*.swift Tests/MemoryChecks.swift -o "$check_dir/memory-checks"
 "$check_dir/memory-checks"
 swiftc -module-cache-path "$check_dir/modules" -parse-as-library \
+  Shared/*.swift Tests/RuleChecks.swift -o "$check_dir/rule-checks"
+"$check_dir/rule-checks" RuleResources/SkillRules.json
+swiftc -module-cache-path "$check_dir/modules" -parse-as-library \
   Keyboard/Input/*.swift Tests/TypingChecks.swift -o "$check_dir/typing-checks"
 "$check_dir/typing-checks" Keyboard/Resources/pinyin.tsv
 swiftc -module-cache-path "$check_dir/modules" -parse-as-library \

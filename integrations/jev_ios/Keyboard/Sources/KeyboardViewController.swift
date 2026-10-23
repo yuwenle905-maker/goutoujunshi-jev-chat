@@ -672,7 +672,9 @@ final class KeyboardViewController: UIInputViewController {
             let text = Transcript(text: transcript, confirmed: confirmed || rewrite)
             try text.validate()
             let memoryContext = try store?.memoryStore().context(relationship.id) ?? ""
-            let api = ModelAPI(transport: transport, config: config, secrets: try CredentialVault.load(), memoryContext: memoryContext)
+            let rules = try store?.skillRules.current().context(goal: relationship.goal,
+                background: relationship.background + "\n" + relationship.notes, transcript: transcript) ?? ""
+            let api = ModelAPI(transport: transport, config: config, secrets: try CredentialVault.load(), memoryContext: memoryContext, ruleContext: rules)
             try api.preflight(); try relationship.validate()
             let previous = advice
             revision += 1; task?.cancel()

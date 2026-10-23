@@ -46,3 +46,9 @@
 - 竖屏字母由 24pt 放大至 29pt，左右边距缩至 3pt，行间距 12pt，第二行保留半键缩进；横屏采用紧凑布局。
 - 右下角跟随输入框 returnKeyType 显示发送、搜索、完成、换行等；有未提交拼音时先选字，再次主动点击才提交 Return。长按可选换行。
 - 使用公开 textDocumentProxy.insertText("\n") 将 Return 交给宿主处理；不使用微信私有接口，不保证所有宿主会将 Return 解释为发送。如果只换行，请使用聊天软件自身的发送按钮或切换系统键盘发送。微信实际行为需 iPhone 验证。
+
+### 0.3.0 (16)：完整Skill资料与一键更新
+
+配置 → 狗头军师Skill规则 → 一键同步更新规则。来源为 https://github.com/shengjidaguai-china/goutoujunshi ，完整本地收录SKILL.md和全部references Markdown，分析按需最多选3份参考（每份限6000字），无需重装IPA即可更新。每天检查在主App回前台时执行，不是全天后台定时任务；可以关闭或立即手动更新。更新失败保留旧规则，可回退上一下载版或恢复内置版。App和键盘共用规则，单轮分析固定快照。
+
+版本更新记录见仓库根目录 CHANGELOG-IOS.md。手机下载规则只更新本机缓存，不会自动提交GitHub；源码、内置规则快照和版本说明保存在本Fork。

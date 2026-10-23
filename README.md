@@ -99,3 +99,5 @@ python3 -B -m unittest discover -s tests -q
 仓库主体采用 [MIT 许可证](LICENSE)。第三方组件沿用各自许可，详见 [Mac LICENSE](integrations/jev_mac/vendor/LICENSE)、[Android NOTICE](integrations/jev_android/NOTICE) 与 [Windows NOTICE](integrations/jev_windows/NOTICE)。
 
 欢迎[提交问题或建议](https://github.com/shengjidaguai-china/goutoujunshi-jev-chat/issues)，也欢迎 [Star 收藏](https://github.com/shengjidaguai-china/goutoujunshi-jev-chat/stargazers)。加入升级打怪开源群：Email `247133278@qq.com` · WeChat `loonges` · QQ `247133278`。
+
+个人 Fork 的 iOS 版本更新记录：[CHANGELOG-IOS.md](CHANGELOG-IOS.md)。规则源使用原作者独立 [goutoujunshi Skill](https://github.com/shengjidaguai-china/goutoujunshi/blob/main/SKILL.md)，配置页支持一键同步、每日前台检查和恢复旧规则。

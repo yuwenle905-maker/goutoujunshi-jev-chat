@@ -24,10 +24,10 @@ struct GoutouApp: App {
             .foregroundStyle(Palette.ink)
             .toolbarBackground(Palette.cream, for: .tabBar)
             .environmentObject(model)
-            .onAppear { receiveScreenshot() }
+            .onAppear { receiveScreenshot(); RuleUpdateModel.shared.checkIfDue() }
             .onChange(of: screenshotInbox.pending) { _ in receiveScreenshot() }
             .onChange(of: scenePhase) { phase in
-                if phase == .active { model.reload() }
+                if phase == .active { model.reload(); RuleUpdateModel.shared.checkIfDue() }
                 else if phase == .background { model.cancel() }
             }
         }
@@ -98,7 +98,9 @@ final class AppModel: ObservableObject {
     func cancel() { invalidate(clear: false); status = "已取消；已发出的服务请求无法撤回。" }
     func api() throws -> ModelAPI {
         let context = try store?.memoryStore().context(relationship.id) ?? ""
-        return ModelAPI(transport: transport, config: config, secrets: try CredentialVault.load(), memoryContext: context)
+        let rules = try store?.skillRules.current().context(goal: relationship.goal,
+            background: relationship.background + "\n" + relationship.notes, transcript: transcript) ?? ""
+        return ModelAPI(transport: transport, config: config, secrets: try CredentialVault.load(), memoryContext: context, ruleContext: rules)
     }
 
     func analyze(rewrite: Bool = false) {

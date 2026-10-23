@@ -11,6 +11,10 @@ on:
       - integrations/jev_ios/Keyboard/**
       - integrations/jev_ios/Tests/**
       - integrations/jev_ios/Share/**
+      - integrations/jev_ios/RuleResources/**
+      - integrations/jev_ios/tools/check.sh
+      - integrations/jev_ios/tools/check_project.py
+      - integrations/jev_ios/tools/generate_project.py
 
 permissions:
   contents: read

@@ -53,6 +53,8 @@ assert share["NSExtensionPointIdentifier"] == "com.apple.share-services"
 assert share["NSExtensionPrincipalClass"] == "$(PRODUCT_MODULE_NAME).ShareViewController"
 assert plistlib.loads((ROOT / "Share/GoutouShare.entitlements").read_bytes()) == plistlib.loads((ROOT / "App/GoutouJunshi.entitlements").read_bytes())
 app_resources = phase_paths(targets["GoutouJunshi"], "PBXResourcesBuildPhase")
+for name in ("GoutouJunshi", "GoutouKeyboard"):
+    assert "RuleResources/SkillRules.json" in phase_paths(targets[name], "PBXResourcesBuildPhase")
 assert sum(path.endswith(".csv") for path in app_resources) == 5
 entitlements = [plistlib.loads((ROOT / file).read_bytes()) for file in (
     "App/GoutouJunshi.entitlements", "Keyboard/GoutouKeyboard.entitlements")]

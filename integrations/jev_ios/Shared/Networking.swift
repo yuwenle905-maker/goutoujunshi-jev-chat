@@ -87,6 +87,7 @@ struct ModelAPI {
     let config: AppConfig
     let secrets: ProviderSecrets
     var memoryContext = ""
+    var ruleContext = ""
 
     static func chatURL(_ base: String) throws -> URL {
         var text = base.trimmed

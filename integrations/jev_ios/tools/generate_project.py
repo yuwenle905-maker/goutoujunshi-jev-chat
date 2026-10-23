@@ -101,6 +101,9 @@ for name, files, product, kind, identifier, info, entitlement in [
         resource_files += [build(name, p, "text") for p in keyboard_resources]
     if name == "GoutouJunshi":
         resource_files.append(build(name, "App/Assets.xcassets", "folder.assetcatalog"))
+    if name in ("GoutouJunshi", "GoutouKeyboard"):
+        resource_files.append(build(name, "RuleResources/SkillRules.json", "text.json"))
+        resource_files.append(build(name, "RuleResources/SkillRules-LICENSE.txt", "text"))
     resource_phase = add("resources:" + name, "PBXResourcesBuildPhase", buildActionMask=2147483647,
                          files=resource_files, runOnlyForDeploymentPostprocessing=0)
     phases = [sources, frameworks, resource_phase]
@@ -117,7 +120,7 @@ for name, files, product, kind, identifier, info, entitlement in [
                           dstSubfolderSpec=13, files=embedded, name="Embed App Extensions", runOnlyForDeploymentPostprocessing=0))
     settings = {"PRODUCT_NAME": name, "PRODUCT_BUNDLE_IDENTIFIER": identifier,
                 "INFOPLIST_FILE": info, "CODE_SIGN_ENTITLEMENTS": entitlement,
-                "CURRENT_PROJECT_VERSION": "15", "MARKETING_VERSION": "0.2.1",
+                "CURRENT_PROJECT_VERSION": "16", "MARKETING_VERSION": "0.3.0",
                 "LD_RUNPATH_SEARCH_PATHS": ["$(inherited)", "@executable_path/Frameworks"]}
     if name != "GoutouJunshi":
         settings.update({"APPLICATION_EXTENSION_API_ONLY": "YES", "SKIP_INSTALL": "YES",

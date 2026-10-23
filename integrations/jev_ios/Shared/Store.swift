@@ -64,6 +64,7 @@ final class GoutouStore {
     func config() -> AppConfig { decode("config", fallback: AppConfig()) }
     #if !GOUTOU_CAPTURE
     func memoryStore() throws -> ChatMemoryStore { ChatMemoryStore(container: container, key: try MemoryEncryptionKey.load()) }
+    var skillRules: SkillRuleStore { SkillRuleStore(container: container) }
     var importInbox: SharedImportInbox { SharedImportInbox(container: container) }
     #endif
     func saveConfig(_ value: AppConfig) throws {

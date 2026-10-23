@@ -1,0 +1,59 @@
+name: Build TrollStore IPA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/ios-trollstore.yml
+      - integrations/jev_ios/tools/package_trollstore.py
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: integrations/jev_ios
+        shell: bash
+    env:
+      GOUTOU_BUNDLE_ID: ai.goutoujunshi.chatios
+      GOUTOU_APP_GROUP: group.ai.goutoujunshi.chatios
+      GOUTOU_KEYCHAIN_GROUP: GOUTOU00001.ai.goutoujunshi.chatios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check source and project
+        run: bash tools/check.sh
+      - name: Build ARM64 device app and extensions
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -project GoutouJunshi.xcodeproj -scheme GoutouJunshi \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build-trollstore \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= \
+            GOUTOU_BUNDLE_ID="$GOUTOU_BUNDLE_ID" \
+            GOUTOU_APP_GROUP="$GOUTOU_APP_GROUP" \
+            GOUTOU_KEYCHAIN_GROUP="$GOUTOU_KEYCHAIN_GROUP" \
+            build
+      - name: Install entitlement signing tool
+        run: |
+          command -v ldid || brew install ldid
+      - name: Sign, verify and package for TrollStore
+        run: |
+          python3 tools/package_trollstore.py \
+            build-trollstore/Build/Products/Release-iphoneos/GoutouJunshi.app \
+            build-trollstore/output
+      - name: Upload installable IPA and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoutouJunshi-TrollStore-iOS17-arm64
+          path: |
+            integrations/jev_ios/build-trollstore/output/GoutouJunshi-TrollStore.ipa
+            integrations/jev_ios/build-trollstore/output/SHA256SUMS.txt
+            integrations/jev_ios/build-trollstore/output/build-info.json
+          if-no-files-found: error
+          retention-days: 30

@@ -4,6 +4,8 @@
 
 # 狗头军师 · iOS 安装与使用
 
+> 本 Fork 的个人 TrollStore 0.2.0：新增对象加密长期记忆、TXT/CSV/JSON/ZIP 与系统分享导入、小鹤双拼、英文切换和简洁键盘配色。安装与数据流见 [TROLLSTORE.md](TROLLSTORE.md) 及根目录 [PRIVACY.md](../../PRIVACY.md)。以下安装段落主要保留上游 Xcode 路线。
+
 **在 iPhone 键盘里打字、读聊天截图、看军师建议，确认后把回复填入草稿。** 主 App 用于配置模型、关系资料和查看 K 线；聊天时用地球键切换到狗头军师键盘，发送由你决定。
 
 如果这个工具对你有用，可以[点一个 Star](https://github.com/shengjidaguai-china/goutoujunshi-jev-chat/stargazers)，方便以后回来找到它。

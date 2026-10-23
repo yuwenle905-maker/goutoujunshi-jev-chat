@@ -48,7 +48,7 @@ struct SendChatScreenshotToKeyboardIntent: AppIntent {
             throw GoutouError.invalid("请先切换到狗头军师键盘，点“识图”→“收起键盘后截屏”或“小面板等待”，再运行这个快捷指令。等待有效期为 90 秒。")
         }
         do {
-            let jpeg = try LocalOCR.boundedJPEG(screenshot.data, maxPixelSize: 1600,
+            let jpeg = try LocalOCR.boundedJPEG(screenshot.data, maxPixelSize: 2200,
                                                 excludedBottomFraction: request.excludedBottomFraction)
             let result = try await CaptureOCR.prepare(jpeg, request: request)
             try Task.checkCancellation()

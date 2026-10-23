@@ -58,6 +58,31 @@ struct ImageChecks {
               let png = bitmap.representation(using: .png, properties: [:]) else { throw GoutouError.invalid("Dark fixture failed") }
         return png
     }
+    @MainActor static func greenFixture(dark: Bool) throws -> Data {
+        let canvas = NSImage(size: NSSize(width: 1170, height: 2532))
+        canvas.lockFocus()
+        (dark ? NSColor(calibratedWhite: 0.06, alpha: 1) : NSColor(calibratedWhite: 0.94, alpha: 1)).setFill()
+        NSRect(x: 0, y: 0, width: 1170, height: 2532).fill()
+        func bubble(_ text: String, x: CGFloat, y: CGFloat, width: CGFloat, green: Bool) {
+            (green ? NSColor(calibratedRed: 0.58, green: 0.94, blue: 0.38, alpha: 1) :
+                (dark ? NSColor(calibratedWhite: 0.17, alpha: 1) : NSColor.white)).setFill()
+            NSBezierPath(roundedRect: NSRect(x: x, y: y, width: width, height: 120), xRadius: 14, yRadius: 14).fill()
+            (text as NSString).draw(at: NSPoint(x: x + 24, y: y + 32), withAttributes: [
+                .font: NSFont.systemFont(ofSize: 44), .foregroundColor: green || !dark ? NSColor.black : NSColor.lightGray
+            ])
+        }
+        bubble("最近比较忙", x: 130, y: 2020, width: 420, green: false)
+        bubble("收到", x: 820, y: 1760, width: 200, green: true)
+        bubble("那就按安排来", x: 130, y: 1460, width: 450, green: false)
+        bubble("有空再一起聊", x: 600, y: 850, width: 420, green: true)
+        bubble("收到", x: 820, y: 590, width: 200, green: true)
+        bubble("今天的安排终于都处理好了", x: 340, y: 300, width: 680, green: true)
+        ("g +" as NSString).draw(at: NSPoint(x: 1000, y: 130), withAttributes: [.font: NSFont.systemFont(ofSize: 42), .foregroundColor: NSColor.gray])
+        canvas.unlockFocus()
+        guard let tiff = canvas.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { throw GoutouError.invalid("Green fixture failed") }
+        return png
+    }
     @MainActor static func main() async {
         do {
             let png = try fixture()
@@ -112,6 +137,16 @@ struct ImageChecks {
             let croppedDark = try LocalOCR.boundedJPEG(dark, maxPixelSize: 2000, excludedBottomFraction: 0.35)
             let capturedDark = try await CaptureOCR.prepare(croppedDark, request: localRequest)
             try check("Cropped capture keeps Chinese but rejects status", capturedDark.transcript.contains("今天") && !capturedDark.transcript.contains("02:24"))
+            for darkMode in [false, true] {
+                let greenText = try await LocalOCR.recognize(greenFixture(dark: darkMode), maxPixelSize: 2200)
+                let cleaned = greenText.replacingOccurrences(of: " ", with: "")
+                try check("Upper left message retained, dark=\(darkMode)", cleaned.contains("最近比较忙"))
+                try check("Lower green message one, dark=\(darkMode)", cleaned.contains("有空再一起聊"))
+                try check("Lower green long message, dark=\(darkMode)", cleaned.contains("今天的安排终于都处理好了"))
+                try check("Repeated genuine messages retained, overlapping tiles deduplicated, dark=\(darkMode)", cleaned.components(separatedBy: "收到").count == 3)
+                try check("Bottom input icons excluded, dark=\(darkMode)", !cleaned.contains("g+"))
+                try check("Bottom message order preserved, dark=\(darkMode)", cleaned.range(of: "有空再一起聊")!.lowerBound < cleaned.range(of: "今天的安排终于都处理好了")!.lowerBound)
+            }
             do {
                 _ = try await LocalOCR.recognize(darkFixture(statusOnly: true))
                 throw GoutouError.invalid("Status-only image accepted as chat")

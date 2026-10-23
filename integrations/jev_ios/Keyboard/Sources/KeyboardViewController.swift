@@ -18,7 +18,7 @@ final class KeyboardViewController: UIInputViewController {
     private var task: Task<Void, Never>?
     private let transport = HTTPTransport()
     private let content = UIStackView()
-    private let scroll = UIScrollView()
+    private let scroll = KeyboardScrollView()
     private let header = UIStackView()
     private let footer = UILabel()
     private let reviewBar = UIStackView()
@@ -60,6 +60,9 @@ final class KeyboardViewController: UIInputViewController {
         view.backgroundColor = KB.cream
         view.tintColor = .systemBlue
         scroll.delaysContentTouches = false
+        scroll.canCancelContentTouches = true
+        scroll.alwaysBounceVertical = true
+        scroll.isDirectionalLockEnabled = true
         scroll.showsVerticalScrollIndicator = true
         content.axis = .vertical; content.spacing = 12
         header.axis = .horizontal; header.spacing = 6; header.alignment = .center
@@ -523,7 +526,7 @@ final class KeyboardViewController: UIInputViewController {
         waitingCapture = nil; receivedCaptureID = nil
         do {
             let data = try ClipboardScreenshot.read()
-            let jpeg = try LocalOCR.boundedJPEG(data, maxPixelSize: 1600)
+            let jpeg = try LocalOCR.boundedJPEG(data, maxPixelSize: 2200)
             pendingScreenshot = jpeg
             if recognizeLocally && config.ocr == .local {
                 recognizeScreenshot(jpeg, provider: .local); return
@@ -553,7 +556,7 @@ final class KeyboardViewController: UIInputViewController {
         task = Task { [weak self] in
             do {
                 let text: String
-                if provider == .local { text = try await LocalOCR.recognize(data, maxPixelSize: 1600) }
+                if provider == .local { text = try await LocalOCR.recognize(data, maxPixelSize: 2200) }
                 else {
                     guard let api = api else { return }
                     text = try await api.recognizeImage(base64: data.base64EncodedString(),

@@ -1,5 +1,10 @@
 import UIKit
 
+/// A drag starting on a message/button must scroll, rather than remain a pressed control.
+final class KeyboardScrollView: UIScrollView {
+    override func touchesShouldCancel(in view: UIView) -> Bool { true }
+}
+
 enum KB {
     static let primary = UIColor.systemBlue
     static let onPrimary = UIColor.white

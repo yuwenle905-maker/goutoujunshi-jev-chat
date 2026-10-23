@@ -10,7 +10,7 @@ enum CaptureOCR {
     static func prepare(_ jpeg: Data, request: KeyboardCaptureRequest) async throws -> KeyboardCaptureResult {
         try Task.checkCancellation()
         if request.config.ocr == .local {
-            let text = try await LocalOCR.recognize(jpeg, maxPixelSize: 2000, screenCapture: true)
+            let text = try await LocalOCR.recognize(jpeg, maxPixelSize: 2200, screenCapture: true)
             return KeyboardCaptureResult(request: request, transcript: text)
         }
         guard jpeg.count <= 4_000_000 else { throw GoutouError.invalid("截图过大，请重新截屏") }
@@ -58,7 +58,13 @@ enum LocalOCR {
         let job = Task.detached(priority: .userInitiated) {
             try Task.checkCancellation()
             let cgImage = try Self.image(data, maxPixelSize: maxPixelSize)
-            func scan(_ image: CGImage) throws -> [VNRecognizedTextObservation] {
+            struct Line {
+                var text: String
+                var box: CGRect
+                var confidence: Float
+                var han: Int { text.unicodeScalars.filter { (0x3400...0x9fff).contains($0.value) }.count }
+            }
+            func scan(_ image: CGImage, top: Double = 0, fraction: Double = 1) throws -> [Line] {
                 try Task.checkCancellation()
                 let request = VNRecognizeTextRequest()
                 request.recognitionLevel = .accurate
@@ -66,35 +72,65 @@ enum LocalOCR {
                 request.usesLanguageCorrection = true
                 request.minimumTextHeight = 0.008
                 try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
-                let portrait = Double(image.height) / Double(image.width) > 1.5
-                return (request.results ?? []).filter { row in
-                    guard let text = row.topCandidates(1).first?.string.trimmed, !text.isEmpty else { return false }
-                    // Vision boxes use bottom-left coordinates. Exclude status/navigation and input bar.
-                    if (portrait || screenCapture) && (row.boundingBox.midY > 0.88 || row.boundingBox.midY < 0.055) { return false }
-                    if row.boundingBox.midX > 0.30 && row.boundingBox.midX < 0.70 &&
-                        text.range(of: "^(?:[0-9]{1,2}月[0-9]{1,2}日\\s*)?[0-9]{1,2}[:：][0-9]{2}$", options: .regularExpression) != nil { return false }
-                    return true
+                return (request.results ?? []).compactMap { row in
+                    guard let candidate = row.topCandidates(1).first, !candidate.string.trimmed.isEmpty else { return nil }
+                    let box = row.boundingBox
+                    return Line(text: candidate.string.trimmed,
+                        box: CGRect(x: box.minX, y: (1 - top - fraction) + box.minY * fraction,
+                                    width: box.width, height: box.height * fraction), confidence: candidate.confidence)
                 }
             }
-            func hanCount(_ rows: [VNRecognizedTextObservation]) -> Int {
-                rows.reduce(0) { result, row in result + (row.topCandidates(1).first?.string.unicodeScalars.filter {
-                    (0x3400...0x9fff).contains($0.value)
-                }.count ?? 0) }
-            }
             var rows = try scan(cgImage)
-            if hanCount(rows) < 4 {
-                // White/gray text on dark chat bubbles can be missed by Vision on iOS 17.
+            let context = CIContext(options: [.cacheIntermediates: false])
+            if rows.reduce(0, { $0 + $1.han }) < 4 {
                 let inverted = CIImage(cgImage: cgImage).applyingFilter("CIColorInvert")
-                if let light = CIContext(options: [.cacheIntermediates: false]).createCGImage(inverted, from: inverted.extent) {
+                if let light = context.createCGImage(inverted, from: inverted.extent) {
                     let retry = try scan(light)
-                    if hanCount(retry) > hanCount(rows) || (rows.isEmpty && !retry.isEmpty) { rows = retry }
+                    if retry.reduce(0, { $0 + $1.han }) > rows.reduce(0, { $0 + $1.han }) || rows.isEmpty { rows = retry }
+                }
+            }
+            // A successful upper half says nothing about missed green bubbles below it.
+            // Always rescan overlapping strips; map their boxes back into full-image coordinates.
+            for (top, fraction) in [(0.06, 0.40), (0.36, 0.40), (0.64, 0.36)] {
+                try Task.checkCancellation()
+                let rect = CGRect(x: 0, y: Double(cgImage.height) * top, width: Double(cgImage.width), height: Double(cgImage.height) * fraction).integral
+                    .intersection(CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+                guard let tile = cgImage.cropping(to: rect) else { continue }
+                let actualTop = rect.minY / Double(cgImage.height), actualFraction = rect.height / Double(cgImage.height)
+                let additions: [Line] = try autoreleasepool {
+                    let gray = CIImage(cgImage: tile).applyingFilter("CIColorControls", parameters: [
+                        kCIInputSaturationKey: 0, kCIInputContrastKey: 1.35
+                    ])
+                    let ready = context.createCGImage(gray, from: gray.extent) ?? tile
+                    return try scan(ready, top: actualTop, fraction: actualFraction)
+                }
+                for line in additions {
+                    if let index = rows.firstIndex(where: { previous in
+                        let overlap = previous.box.intersection(line.box)
+                        return !overlap.isNull && overlap.height >= min(previous.box.height, line.box.height) * 0.6 &&
+                            overlap.width >= min(previous.box.width, line.box.width) * 0.55
+                    }) {
+                        let previous = rows[index]
+                        if (line.han > previous.han && line.confidence >= previous.confidence - 0.12) ||
+                            (line.confidence > previous.confidence + 0.15 && line.han >= previous.han) { rows[index] = line }
+                    } else { rows.append(line) }
                 }
             }
             try Task.checkCancellation()
-            let observations = rows.sorted { $0.boundingBox.midY > $1.boundingBox.midY }
+            let portrait = Double(cgImage.height) / Double(cgImage.width) > 1.5
+            let observations = rows.filter { row in
+                if (portrait || screenCapture) && (row.box.midY > 0.88 || row.box.midY < 0.10) { return false }
+                if row.box.midX > 0.30 && row.box.midX < 0.70 &&
+                    row.text.range(of: "^(?:[0-9]{1,2}月[0-9]{1,2}日\\s*)?[0-9]{1,2}\\s*[:：]\\s*[0-9]{2}$", options: .regularExpression) != nil { return false }
+                return true
+            }.sorted { left, right in
+                if left.box.midY == right.box.midY { return left.box.minX < right.box.minX }
+                return left.box.midY > right.box.midY
+            }
             let lines = observations.compactMap { observation -> String? in
-                guard let text = observation.topCandidates(1).first?.string, !text.trimmed.isEmpty else { return nil }
-                let x = observation.boundingBox.midX
+                let text = observation.text
+                guard !text.trimmed.isEmpty else { return nil }
+                let x = observation.box.midX
                 let speaker = x > 0.58 ? "我" : (x < 0.42 ? "对方" : "说话人待确认")
                 return speaker + "：" + text
             }

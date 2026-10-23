@@ -74,12 +74,12 @@ struct CoreChecks {
         try check("Repair guide bundled", GoutouGuidance.scene["修复冲突"] != nil)
         let legacyGoals = ["自然接话", "主动邀约", "澄清关系", "修复冲突", "减少投入", "结束联系"]
         try check("Existing goals and stages remain compatible", legacyGoals.allSatisfy(Relationship.goals.contains) && Relationship.stages.count == 7)
-        let pipeline = GoutouPipeline(api: ModelAPI(transport: MockTransport([]), config: AppConfig(), secrets: secrets))
+        let goalPipeline = GoutouPipeline(api: ModelAPI(transport: MockTransport([]), config: AppConfig(), secrets: secrets))
         for goal in Relationship.goals {
             var relationship = Relationship(); relationship.goal = goal
             let restored = try JSONDecoder().decode(Relationship.self, from: JSONEncoder().encode(relationship))
             try restored.validate()
-            let payload = try ModelJSON.object(pipeline.input(Transcript(text: "我：今天过得怎么样？", confirmed: true), restored))
+            let payload = try ModelJSON.object(goalPipeline.input(Transcript(text: "我：今天过得怎么样？", confirmed: true), restored))
             try check("Goal survives persistence and reaches judge: \(goal)", restored.goal == goal && payload["goal"] as? String == goal && payload["goal_guide"] as? String == Relationship.goalGuidance[goal])
             try check("Reply receives goal guidance: \(goal)", GoutouGuidance.analysis(config: AppConfig(), strategy: .nudge, goal: goal).contains(Relationship.guidance(for: goal)))
         }

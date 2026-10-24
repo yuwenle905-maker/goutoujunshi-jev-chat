@@ -5,6 +5,8 @@
 - 修复主 App 的聊天文件导入入口：同一页面的两个 fileImporter 合并为一个选择器，通过入口指定聊天文件或截图类型，避免 iOS 17 上后挂载的截图选择器遮蔽聊天导入。
 - 文件读取继续使用安全作用域授权、大小限制、原文核对与手动保存记忆；选择截图仍进入原有识图流程。打开选择器前收起编辑键盘。
 - 保留 Bundle ID、App Group、钥匙串与现有聊天/配置格式；不迁移或清空数据。
+- 现有327项离线检查及工程检查、四target ARM64编译与打包通过；下载后核验ZIP CRC、四bundle版本0.3.3(19)与SHA256。手机触屏和文件选择器仍需iPhone实测。
+- 源码7f2d992；[成功构建](https://github.com/yuwenle905-maker/goutoujunshi-jev-chat/actions/runs/40082064715)。IPA SHA256：e160927ee52f6410c7ff6d4faad942ef86a7a644039aafc3d7e0c1177897daee。
 
 ## 0.3.2 (18) — 2026-10-24
 

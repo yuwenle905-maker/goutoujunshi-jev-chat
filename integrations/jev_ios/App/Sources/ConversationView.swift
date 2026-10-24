@@ -6,7 +6,9 @@ import UniformTypeIdentifiers
 struct ConversationView: View {
     @EnvironmentObject var model: AppModel
     @State private var photo: PhotosPickerItem?
-    @State private var importer = false
+    private enum FileImportKind { case chat, screenshot }
+    @State private var fileImportKind = FileImportKind.chat
+    @State private var fileImporter = false
     @State private var details = false
     @State private var cloudConsent = false
     @State private var pendingImage: Data?
@@ -15,7 +17,6 @@ struct ConversationView: View {
     @State private var loadingImage = false
     @State private var shortcutGuide = false
     @State private var reviewAlert = false
-    @State private var chatImporter = false
     @State private var memorySheet = false
     @State private var sharedImports = [SharedChatImport]()
     @State private var stagedImport: SharedChatImport?
@@ -54,10 +55,11 @@ struct ConversationView: View {
                             catch { model.status = error.localizedDescription }
                         }.buttonStyle(.bordered).accessibilityIdentifier("pasteChatScreenshot")
                     }.disabled(model.working || loadingImage)
-                    Button { importer = true } label: { Label("从文件选择截图", systemImage: "folder") }
+                    Button { openFileImporter(.screenshot) } label: { Label("从文件选择截图", systemImage: "folder") }
                         .font(.callout).disabled(model.working || loadingImage)
-                    Button { chatImporter = true } label: { Label("导入聊天文件（TXT / CSV / JSON / ZIP）", systemImage: "doc.badge.plus") }
+                    Button { openFileImporter(.chat) } label: { Label("导入聊天文件（TXT / CSV / JSON / ZIP）", systemImage: "doc.badge.plus") }
                         .font(.callout).disabled(model.working || loadingImage)
+                        .accessibilityIdentifier("importChatFile")
                     ForEach(sharedImports) { item in
                         Button("接收共享内容：\(item.source)") { stagedImport = item; importConfirmation = true }
                             .disabled(model.working)
@@ -179,13 +181,20 @@ struct ConversationView: View {
         }
         .onAppear { receiveShortcutScreenshot(proxy); loadSharedImports() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in loadSharedImports() }
-        .fileImporter(isPresented: $chatImporter, allowedContentTypes: [.plainText, .commaSeparatedText, .json, .zip], allowsMultipleSelection: false) { result in
+        // A single presenter owns both routes: multiple fileImporter modifiers on
+        // this view can shadow each other on iOS 17.
+        .fileImporter(isPresented: $fileImporter, allowedContentTypes: fileImportKind == .chat ? [.plainText, .commaSeparatedText, .json, .zip] : [.image], allowsMultipleSelection: false) { result in
             do {
                 guard let url = try result.get().first else { return }
                 let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }
-                guard let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 8_000_000 else { throw GoutouError.invalid("文件超过 8 MB") }
-                stagedImport = SharedChatImport(text: try ChatImport.text(Data(contentsOf: url), filename: url.lastPathComponent), source: url.lastPathComponent)
-                importConfirmation = true
+                let maximum = fileImportKind == .chat ? 8_000_000 : 20_000_000
+                guard let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= maximum else { throw GoutouError.invalid("文件超过 \(maximum / 1_000_000) MB") }
+                if fileImportKind == .chat {
+                    stagedImport = SharedChatImport(text: try ChatImport.text(Data(contentsOf: url), filename: url.lastPathComponent), source: url.lastPathComponent)
+                    importConfirmation = true
+                } else {
+                    stageImage(try Data(contentsOf: url))
+                }
             } catch { model.status = error.localizedDescription; reviewAlert = true }
         }
         .confirmationDialog("导入到当前对象“\(model.relationship.label)”的待核对区？", isPresented: $importConfirmation, titleVisibility: .visible) {
@@ -206,20 +215,16 @@ struct ConversationView: View {
                 loadingImage = false; photo = nil
             }
         }
-        .fileImporter(isPresented: $importer, allowedContentTypes: [.image]) { result in
-            do {
-                let url = try result.get()
-                let access = url.startAccessingSecurityScopedResource()
-                defer { if access { url.stopAccessingSecurityScopedResource() } }
-                guard let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 20_000_000 else { throw GoutouError.invalid("截图超过 20 MB") }
-                stageImage(try Data(contentsOf: url))
-            } catch { model.status = "无法读取截图，请检查文件格式或大小" }
-        }
         .confirmationDialog("将所选聊天截图发送至 \(pendingProvider.rawValue)？", isPresented: $cloudConsent, titleVisibility: .visible) {
             Button("发送截图并识别") { if let data = pendingImage { model.recognize(data, provider: pendingProvider) }; pendingImage = nil }
             Button("取消", role: .cancel) { pendingImage = nil; screenshotPreview = nil }
         } message: { Text("只发送这张截图，会产生接口用量。识别后仍需核对原文和双方身份。") }
         }
+    }
+    private func openFileImporter(_ kind: FileImportKind) {
+        dismissFormKeyboard()
+        fileImportKind = kind
+        fileImporter = true
     }
     private func resolve(_ line: Transcript.PendingLine, speaker: String?) {
         dismissFormKeyboard()

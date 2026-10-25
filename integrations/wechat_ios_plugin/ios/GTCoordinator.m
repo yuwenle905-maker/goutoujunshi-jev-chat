@@ -11,8 +11,8 @@ static UIViewController *GTTop(void) {
         for (UIWindow *w in ((UIWindowScene *)scene).windows) if (w.isKeyWindow) { UIViewController *vc = w.rootViewController; while (vc.presentedViewController) vc = vc.presentedViewController; return vc; }
     } return nil;
 }
-@implementation GTCoordinator
-+ (instancetype)shared { static GTCoordinator *v; static dispatch_once_t once; dispatch_once(&once, ^{ v = [GTCoordinator new]; }); return v; }
+@implementation GTWXAICoordinator
++ (instancetype)shared { static GTWXAICoordinator *v; static dispatch_once_t once; dispatch_once(&once, ^{ v = [GTWXAICoordinator new]; }); return v; }
 - (instancetype)init {
     if ((self = [super init])) { _histories = [NSMutableDictionary new]; _revisions = [NSMutableDictionary new]; _drafts = [NSMutableDictionary new]; _seen = [NSMutableDictionary new]; _pending = [NSMutableDictionary new]; _paused = [NSMutableSet new]; }
     return self;
@@ -20,8 +20,8 @@ static UIViewController *GTTop(void) {
 - (NSString *)scope:(NSString *)peer { return GTHash([NSString stringWithFormat:@"%@\n%@", self.account ?: @"", peer ?: @""]); }
 - (void)cancel:(NSString *)peer { NSString *s = [self scope:peer]; self.revisions[s] = @([self.revisions[s] integerValue] + 1); [self.drafts removeObjectForKey:s]; GTLog(@"task_cancelled"); }
 - (BOOL)allowed:(NSString *)scope {
-    NSDictionary *c = GTConfig.shared.values;
-    return [c[@"enabled"] boolValue] && [c[@"cloud_consent"] boolValue] && ([c[@"all_friends"] boolValue] || [[GTConfig.shared profile:scope][@"enabled"] boolValue]);
+    NSDictionary *c = GTWXAIConfig.shared.values;
+    return [c[@"enabled"] boolValue] && [c[@"cloud_consent"] boolValue] && ([c[@"all_friends"] boolValue] || [[GTWXAIConfig.shared profile:scope][@"enabled"] boolValue]);
 }
 - (void)observe:(NSDictionary *)e {
     NSAssert(NSThread.isMainThread, @"Main queue only");
@@ -34,9 +34,9 @@ static UIViewController *GTTop(void) {
     if (self.seen.count > 2000) { [self.seen removeAllObjects]; self.seen[dedup] = @YES; }
     if (outgoing && [self.pending[scope][@"text"] isEqual:e[@"content"]]) {
         // A local echo is not a server-delivery receipt.
-        NSMutableDictionary *ledger = GTConfig.shared.values[@"ledger"];
-        ledger[self.pending[scope][@"key"]] = @"local_echo"; [GTConfig.shared save];
-        [GTConfig.shared.values[@"blocked"] removeObjectForKey:scope]; [GTConfig.shared save];
+        NSMutableDictionary *ledger = GTWXAIConfig.shared.values[@"ledger"];
+        ledger[self.pending[scope][@"key"]] = @"local_echo"; [GTWXAIConfig.shared save];
+        [GTWXAIConfig.shared.values[@"blocked"] removeObjectForKey:scope]; [GTWXAIConfig.shared save];
         [self.pending removeObjectForKey:scope]; GTLog(@"local_echo_observed_delivery_not_proven");
     }
     [self cancel:peer]; // A manual reply invalidates stale generation but never permanently pauses the peer.
@@ -47,15 +47,15 @@ static UIViewController *GTTop(void) {
     NSString *content = e[@"content"];
     if (content.length > 2000) { GTLog(@"message_too_long_manual_only"); return; }
     [history addObject:@{@"role":outgoing ? @"me" : @"peer", @"content":content}];
-    if (outgoing || ![self allowed:scope] || [self.paused containsObject:scope] || GTConfig.shared.values[@"blocked"][scope]) return;
+    if (outgoing || ![self allowed:scope] || [self.paused containsObject:scope] || GTWXAIConfig.shared.values[@"blocked"][scope]) return;
     // Existing unresolved submissions persist across launches; never blind-retry.
     NSString *key = GTHash([NSString stringWithFormat:@"%@:%@", scope, e[@"message_id"]]);
-    if (GTConfig.shared.values[@"ledger"][key]) { GTLog(@"duplicate_or_unknown_submission_blocked"); return; }
-    NSDictionary *cfg = GTConfig.shared.values;
+    if (GTWXAIConfig.shared.values[@"ledger"][key]) { GTLog(@"duplicate_or_unknown_submission_blocked"); return; }
+    NSDictionary *cfg = GTWXAIConfig.shared.values;
     BOOL group = [peer hasSuffix:@"@chatroom"];
     if (group && (![cfg[@"groups"] boolValue] || ![cfg[@"group_without_at"] boolValue])) { GTLog(@"group_requires_structured_mention_adapter"); return; }
     NSInteger revision = [self.revisions[scope] integerValue];
-    NSMutableDictionary *profile = [[GTConfig.shared profile:scope] mutableCopy];
+    NSMutableDictionary *profile = [[GTWXAIConfig.shared profile:scope] mutableCopy];
     if (![profile[@"persona"] length]) profile[@"persona"] = cfg[@"persona"];
     profile[@"prefix"] = cfg[@"prefix"]; profile[@"suffix"] = cfg[@"suffix"];
     profile[@"meme_bank"] = cfg[@"meme_bank"] ?: @"";
@@ -65,7 +65,7 @@ static UIViewController *GTTop(void) {
     if (e[@"images"]) request[@"images"] = e[@"images"];
     GTLog(@"generation_started");
     NSString *account = self.account;
-    [[GTClient shared] request:@"/v1/reply" body:request completion:^(NSDictionary *reply, NSString *error) {
+    [[GTWXAIClient shared] request:@"/v1/reply" body:request completion:^(NSDictionary *reply, NSString *error) {
         if (![self.account isEqual:account] || [self.revisions[scope] integerValue] != revision || ![self allowed:scope]) { GTLog(@"stale_response_discarded"); return; }
         if (error) { GTLog(error); return; }
         NSArray *segments = reply[@"segments"];
@@ -99,7 +99,7 @@ static UIViewController *GTTop(void) {
     }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"确认发送" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { consumed = YES; [self dispatch:peer draft:draft]; }]];
     [host presentViewController:alert animated:YES completion:nil];
-    if ([GTConfig.shared.values[@"automatic"] boolValue] && ![draft[@"needs_review"] boolValue]) {
+    if ([GTWXAIConfig.shared.values[@"automatic"] boolValue] && ![draft[@"needs_review"] boolValue]) {
         alert.title = @"5秒无操作确认（修改可停止）";
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             if (consumed || editing || !alert.presentingViewController || UIApplication.sharedApplication.applicationState != UIApplicationStateActive) return;
@@ -112,7 +112,7 @@ static UIViewController *GTTop(void) {
     if (![self.account isEqual:draft[@"account"]] || self.drafts[scope] != draft || ![self allowed:scope] || [self.revisions[scope] integerValue] != [draft[@"revision"] integerValue] || [self.paused containsObject:scope]) { GTLog(@"send_stale_or_disabled"); return; }
     if (!GTCanSend()) { GTLog(@"send_unavailable_8075_not_device_verified"); return; }
     // Explicit conservative protection, not a promise of avoiding account enforcement.
-    NSMutableDictionary *cfg = GTConfig.shared.values;
+    NSMutableDictionary *cfg = GTWXAIConfig.shared.values;
     NSString *day = [[NSISO8601DateFormatter new] stringFromDate:NSDate.date]; day = [day substringToIndex:10];
     if (![cfg[@"send_day"] isEqual:day]) { cfg[@"send_day"] = day; cfg[@"send_count"] = @0; }
     NSTimeInterval last = [cfg[@"last_attempt"] doubleValue];
@@ -123,19 +123,19 @@ static UIViewController *GTTop(void) {
     NSMutableDictionary *ledger = cfg[@"ledger"];
     if (ledger[key] || ledger.count >= 5000) { GTLog(@"duplicate_or_ledger_full"); return; }
     ledger[key] = @"reserved"; cfg[@"blocked"][scope] = @YES; cfg[@"last_attempt"] = @(NSDate.date.timeIntervalSince1970); cfg[@"send_count"] = @([cfg[@"send_count"] integerValue] + segments.count);
-    if (![GTConfig.shared save]) { [self.paused addObject:scope]; GTLog(@"send_blocked_ledger_not_persisted"); return; }
+    if (![GTWXAIConfig.shared save]) { [self.paused addObject:scope]; GTLog(@"send_blocked_ledger_not_persisted"); return; }
     self.pending[scope] = @{@"text":segments[0], @"key":key};
     BOOL submitted = GTSubmit(self.account, peer, segments[0]);
-    if (!submitted) { ledger[key] = @"unknown"; [self.paused addObject:scope]; [GTConfig.shared save]; GTLog(@"send_unknown_peer_paused"); return; }
+    if (!submitted) { ledger[key] = @"unknown"; [self.paused addObject:scope]; [GTWXAIConfig.shared save]; GTLog(@"send_unknown_peer_paused"); return; }
     if ([draft[@"edited"] boolValue]) {
-        NSMutableArray *examples = [GTConfig.shared profile:scope][@"examples"];
+        NSMutableArray *examples = [GTWXAIConfig.shared profile:scope][@"examples"];
         [examples addObject:@{@"incoming":draft[@"incoming"], @"original":draft[@"original"], @"edited":[segments componentsJoinedByString:@"\n"]}];
-        while (examples.count > 6) [examples removeObjectAtIndex:0]; [GTConfig.shared save];
+        while (examples.count > 6) [examples removeObjectAtIndex:0]; [GTWXAIConfig.shared save];
     }
     // A second segment requires a local echo of the first; do not chain from a void method return.
     if (segments.count > 1) GTLog(@"second_segment_held_requires_verified_delivery_adapter");
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        if (self.pending[scope]) { ledger[key] = @"unknown"; [self.paused addObject:scope]; [GTConfig.shared save]; GTLog(@"receipt_missing_peer_paused"); }
+        if (self.pending[scope]) { ledger[key] = @"unknown"; [self.paused addObject:scope]; [GTWXAIConfig.shared save]; GTLog(@"receipt_missing_peer_paused"); }
     });
 }
 @end

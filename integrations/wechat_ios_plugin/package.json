@@ -1,5 +1,5 @@
 {
-  "name": "goutou-ios-plugin", "version": "0.1.0", "private": true,
+  "name": "goutou-ios-plugin", "version": "0.1.1", "private": true,
   "type": "module", "engines": {"node": ">=22"},
   "scripts": {"start": "node --env-file-if-exists=.env backend/server.mjs", "test": "node --test backend/*.test.mjs"}
 }

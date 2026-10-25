@@ -2,6 +2,7 @@
 
 static NSMutableArray *GTLogs;
 void GTLog(NSString *code) {
+    GoutouWechatAI_BootMark(code.UTF8String);
     dispatch_async(dispatch_get_main_queue(), ^{
         if (!GTLogs) GTLogs = [NSMutableArray new];
         [GTLogs addObject:[NSString stringWithFormat:@"%@ %@", NSDate.date, code]];
@@ -9,8 +10,15 @@ void GTLog(NSString *code) {
         [[NSNotificationCenter defaultCenter] postNotificationName:@"GTChanged" object:nil];
     });
 }
-NSString *GTLogText(void) { return [GTLogs componentsJoinedByString:@"\n"] ?: @"暂无日志"; }
-void GTClearLogs(void) { [GTLogs removeAllObjects]; GTLog(@"logs_cleared"); }
+NSString *GTLogText(void) {
+    char path[4096];
+    if (GoutouWechatAI_BootPath(path,sizeof(path))) {
+        NSString *stored = [NSString stringWithContentsOfFile:[NSString stringWithUTF8String:path] encoding:NSUTF8StringEncoding error:nil];
+        if (stored.length) return stored;
+    }
+    return [GTLogs componentsJoinedByString:@"\n"] ?: @"暂无日志";
+}
+void GTClearLogs(void) { [GTLogs removeAllObjects]; GoutouWechatAI_ClearBootLog(); GTLog(@"logs_cleared"); }
 
 static NSMutableDictionary *GTKeyQuery(NSString *name) {
     return [@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,
@@ -40,8 +48,8 @@ static NSURL *GTConfigURL(void) {
     [dir setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
     return [dir URLByAppendingPathComponent:@"config.json"];
 }
-@implementation GTConfig
-+ (instancetype)shared { static GTConfig *v; static dispatch_once_t once; dispatch_once(&once, ^{ v = [GTConfig new]; }); return v; }
+@implementation GTWXAIConfig
++ (instancetype)shared { static GTWXAIConfig *v; static dispatch_once_t once; dispatch_once(&once, ^{ v = [GTWXAIConfig new]; }); return v; }
 - (instancetype)init {
     if ((self = [super init])) {
         NSData *data = [NSData dataWithContentsOfURL:GTConfigURL()];
@@ -70,11 +78,11 @@ static NSURL *GTConfigURL(void) {
 }
 @end
 
-@implementation GTClient
-+ (instancetype)shared { static GTClient *v; static dispatch_once_t once; dispatch_once(&once, ^{v = [GTClient new];}); return v; }
+@implementation GTWXAIClient
++ (instancetype)shared { static GTWXAIClient *v; static dispatch_once_t once; dispatch_once(&once, ^{v = [GTWXAIClient new];}); return v; }
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task willPerformHTTPRedirection:(NSHTTPURLResponse *)response newRequest:(NSURLRequest *)request completionHandler:(void (^)(NSURLRequest *))completionHandler { completionHandler(nil); }
 - (void)request:(NSString *)path body:(NSDictionary *)body completion:(void (^)(NSDictionary *, NSString *))done {
-    NSString *base = GTConfig.shared.values[@"endpoint"];
+    NSString *base = GTWXAIConfig.shared.values[@"endpoint"];
     NSURLComponents *c = [NSURLComponents componentsWithString:base];
     if (![c.scheme.lowercaseString isEqual:@"https"] || !c.host.length || c.user || c.password || c.query || c.fragment || (c.path.length && ![c.path isEqual:@"/"])) { done(nil, @"endpoint_requires_https_origin"); return; }
     c.path = path;

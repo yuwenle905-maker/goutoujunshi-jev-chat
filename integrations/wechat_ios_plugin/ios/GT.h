@@ -4,6 +4,7 @@
 #import <objc/message.h>
 #include <math.h>
 #include <string.h>
+#include "GTBoot.h"
 
 // This is a compatibility target, NOT proof of a tested private ABI.
 #ifndef GT_VERIFIED_8075_SEND
@@ -16,23 +17,24 @@ BOOL GTSaveSecret(NSString *name, NSString *value);
 id GTCall(id object, NSString *selector, NSArray *args);
 BOOL GTObjectMethod(Class cls, SEL sel, NSUInteger count, BOOL returnsVoid);
 void GTInstallAdapter(void);
+void GTEnableRuntimeHooks(void);
 BOOL GTCanSend(void);
 BOOL GTSubmit(NSString *account, NSString *peer, NSString *text);
 void GTPresent(UIViewController *host);
 
-@interface GTConfig : NSObject
+@interface GTWXAIConfig : NSObject
 @property NSMutableDictionary *values;
 + (instancetype)shared;
 - (BOOL)save;
 - (NSMutableDictionary *)profile:(NSString *)scope;
 @end
 
-@interface GTClient : NSObject <NSURLSessionTaskDelegate>
+@interface GTWXAIClient : NSObject <NSURLSessionTaskDelegate>
 + (instancetype)shared;
 - (void)request:(NSString *)path body:(NSDictionary *)body completion:(void (^)(NSDictionary *, NSString *))done;
 @end
 
-@interface GTCoordinator : NSObject
+@interface GTWXAICoordinator : NSObject
 @property NSString *account;
 @property NSString *currentPeer;
 @property NSMutableDictionary *histories;
@@ -48,8 +50,8 @@ void GTPresent(UIViewController *host);
 - (void)cancel:(NSString *)peer;
 @end
 
-@interface GTHome : UIViewController
+@interface GTWXAIHomeController : UIViewController
 @end
-@interface GTSettings : UITableViewController
+@interface GTWXAISettingsController : UITableViewController
 @property NSString *scope;
 @end

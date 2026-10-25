@@ -39,10 +39,13 @@ static void GTReceive(id self, SEL cmd, id session, id wrap) {
         BOOL outgoing = [from isEqual:account];
         NSString *peer = outgoing ? to : from;
         NSDictionary *event = @{@"account":account, @"peer":peer, @"message_id":messageID, @"content":content, @"outgoing":@(outgoing)};
-        dispatch_async(dispatch_get_main_queue(), ^{ [GTCoordinator.shared observe:event]; });
+        dispatch_async(dispatch_get_main_queue(), ^{ [GTWXAICoordinator.shared observe:event]; });
     } @catch (__unused NSException *e) { GTLog(@"receive_decode_failed"); }
 }
 void GTInstallAdapter(void) {
+    static BOOL installed = NO;
+    NSAssert(NSThread.isMainThread, @"Hooks must be installed on main thread");
+    if (installed) return;
     if (![NSBundle.mainBundle.bundleIdentifier isEqual:@"com.tencent.xin"]) return;
     NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
     if (![version isEqual:@"8.0.75"]) { GTLog(@"unsupported_wechat_version"); return; }
@@ -52,6 +55,7 @@ void GTInstallAdapter(void) {
     GTOrigReceive = (void *)method_getImplementation(m);
     // Copy inherited implementation onto this class before replacing it.
     if (!class_addMethod(cls, sel, (IMP)GTReceive, method_getTypeEncoding(m))) method_setImplementation(m, (IMP)GTReceive);
+    installed = YES;
     GTLog(@"candidate_receive_hook_installed_not_device_verified");
 }
 BOOL GTCanSend(void) {

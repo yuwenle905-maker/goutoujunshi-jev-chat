@@ -1,0 +1,25 @@
+✔ auth requires exact constant-length token (2.027ms)
+✔ text and identity validation (0.7272ms)
+✔ independent profile included as data not system directives (0.2898ms)
+✔ room opt-in and explicit mention required (0.3773ms)
+✔ only valid JSON reply can proceed (0.4781ms)
+✔ strict official phrases never automatic, reason is not sent (1.0939ms)
+✔ peer no-question preference persists and mechanical tail requires review (0.4431ms)
+✔ prefix suffix applied once across segments and also validated (0.2029ms)
+✔ simultaneous duplicate requests billed once (9.8891ms)
+✔ same id changed content rejected without another provider call (1.1496ms)
+✔ peers and accounts isolate cache (1.1963ms)
+✔ cache bounded and TTL expires (0.6939ms)
+✔ provider failure is not automatically retried (0.2881ms)
+✔ image routes to vision and becomes real image block (0.4606ms)
+✔ do not accept remote URLs or declared but incorrect image bytes (0.3046ms)
+✔ prompt includes no-question preference, media uncertainty and honest fact rules (0.1763ms)
+✔ HTTP auth, models, replay and redacted errors (76.4508ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 302.6228

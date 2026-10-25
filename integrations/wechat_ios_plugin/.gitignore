@@ -1,0 +1,7 @@
+.env
+build/
+*.ipa
+*.dylib
+*.log
+node_modules/
+.DS_Store

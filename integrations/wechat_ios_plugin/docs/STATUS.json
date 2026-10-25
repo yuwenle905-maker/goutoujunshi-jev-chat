@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "target_os": "iOS 17.0",
+  "target_wechat": "8.0.75",
+  "backend_mock_tests": 17,
+  "real_model_calls": 0,
+  "real_wechat_sends": 0,
+  "ios_compiled": false,
+  "device_verified": false,
+  "private_receive_adapter": "historical candidate; unverified",
+  "private_send_enabled": false,
+  "automatic_media_extraction": "not adapted to 8.0.75",
+  "github_sync": "authorized independent branch; macOS build pending"
+}

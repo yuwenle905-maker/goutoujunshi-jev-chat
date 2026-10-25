@@ -1,0 +1,7 @@
+{
+  "account": "synthetic-self", "peer": "synthetic-peer", "message_id": "123", "revision": 1,
+  "incoming": "吃饭了吗", "model": "deepseek-flash", "temperature": 0.9,
+  "profile": {"persona": "短句、直接、少问句", "stage": "朋友", "goal": "自然接话", "state": "", "boundaries": "不主动邀电话或视频", "prefix": "", "suffix": ""},
+  "history": [{"role": "peer", "content": "能不能不用反问句"}],
+  "examples": [{"incoming": "在干嘛", "original": "你呢？", "edited": "刚忙完"}]
+}

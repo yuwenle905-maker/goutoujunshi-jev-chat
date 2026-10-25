@@ -1,0 +1,30 @@
+name: Build Goutou iOS dylib
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'integrations/wechat_ios_plugin/**'
+      - '.github/workflows/wechat-ios-plugin.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: integrations/wechat_ios_plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm test
+      - run: bash scripts/build-ios.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GoutouAI-iOS17-arm64-diagnostic
+          path: |
+            integrations/wechat_ios_plugin/build/GoutouAI.dylib
+            integrations/wechat_ios_plugin/build/SHA256SUMS.txt
+          if-no-files-found: error

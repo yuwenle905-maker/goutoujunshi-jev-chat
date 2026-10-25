@@ -1,0 +1,5 @@
+{
+  "version": "4.1.15.13",
+  "gate_rva": "0xb135c38",
+  "scope": "binary read only; no process memory changes"
+}

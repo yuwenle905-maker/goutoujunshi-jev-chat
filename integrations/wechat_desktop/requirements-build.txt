@@ -1,0 +1,5 @@
+pyinstaller==6.22.3
+cryptography==50.0.2
+zstandard==0.25.0
+uiautomation==2.0.29
+comtypes==1.4.17

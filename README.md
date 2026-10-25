@@ -41,6 +41,8 @@
 
 ## 选择你的平台
 
+本分支新增 [Windows 原生微信助手](integrations/wechat_desktop/README.md)，支持按对象记忆与可选逐条确认发送。当前后台通道尚待真实微信验收，默认自动发送关闭；详见 [修改记录与开发计划](documentation/windows-assistant-maintenance.md)。既有各平台助手保持原有行为与目录。
+
 目前各端均为预览版，设备与聊天应用的兼容性仍需分别验证。
 
 | 平台 | 获取与安装 | 当前支持与限制 |

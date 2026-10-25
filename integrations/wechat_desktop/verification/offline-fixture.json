@@ -1,0 +1,33 @@
+{
+  "fixture_receipt_matches": true,
+  "foreground_unchanged": true,
+  "cursor_unchanged": true,
+  "clipboard_sequence_unchanged": true,
+  "stages": [
+    {
+      "stage": "background_prepare",
+      "foreground": 26022086
+    },
+    {
+      "stage": "background_read_draft",
+      "foreground": 26022086
+    },
+    {
+      "stage": "background_set_value",
+      "foreground": 26022086
+    },
+    {
+      "stage": "verify_pasted_text",
+      "foreground": 26022086
+    },
+    {
+      "stage": "submit_background",
+      "foreground": 26022086
+    },
+    {
+      "stage": "background_submitted",
+      "foreground": 26022086
+    }
+  ],
+  "scope": "owned offline WinForms fixture only; no WeChat send"
+}

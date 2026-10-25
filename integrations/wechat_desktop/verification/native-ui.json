@@ -1,0 +1,18 @@
+{
+  "tabs": [
+    "微信与对象",
+    "回复工作台",
+    "长期记忆",
+    "模型与规则",
+    "行为设置",
+    "诊断日志"
+  ],
+  "window_title": "狗头微信助手 0.6.3 · 审核 / 自动发送",
+  "rule_references": 43,
+  "startup_connected": false,
+  "startup_auto_suggestions": true,
+  "sender_available": true,
+  "startup_auto_send": false,
+  "sender_implementation": "strict_background_messages",
+  "foreground_fallback": false
+}

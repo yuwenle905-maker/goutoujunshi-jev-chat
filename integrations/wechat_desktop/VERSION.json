@@ -1,0 +1,19 @@
+{
+  "version": "0.6.3",
+  "exe_sha256": "42208aa193bb877af4dc9178c66c55e31fa052e3f768b588df4746dfc4f5c218",
+  "offline_checks": 209,
+  "sender_implementation": "strict_background_messages",
+  "foreground_fallback": false,
+  "real_wechat_send_tested": false,
+  "real_model_tested": false,
+  "default_mode": "manual_review",
+  "approval": "per_message_popup_5_idle_seconds_confirm_interaction_pauses",
+  "relationship_review": "per_contact_sampled_history_evidence_and_progression",
+  "learning": "per_contact_confirmed_edits_last_eight",
+  "repository": "https://github.com/yuwenle905-maker/goutoujunshi-jev-chat",
+  "source_directory": "integrations/wechat_desktop",
+  "source_snapshot_commit": "c6085ed52f414ca356cfd0914b23196b265137e8",
+  "verification_date": "2026-10-25",
+  "actual_probe_observation": "0.6.2: generic input label caused rejection; 0.6.3 actual Qt delivery still pending",
+  "repository_checks": 169
+}

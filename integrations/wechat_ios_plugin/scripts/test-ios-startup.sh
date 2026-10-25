@@ -58,7 +58,9 @@ python3 - <<'PY'
 import json
 d=json.load(open('build/startup-tests/result.json'))
 assert d.get('public_shortcut_count')==1,d
-for key in ['startup_survived','private_hook_absent_until_opt_in','namespaced_settings_class_present','private_hook_installed_after_opt_in','repeat_enable_does_not_rehook','original_receive_called_once','settings_ui_constructed']:assert d.get(key) is True,(key,d)
+# Boxed Objective-C comparison expressions serialize as NSNumber 0/1 on some SDKs.
+for key in ['startup_survived','private_hook_absent_until_opt_in','namespaced_settings_class_present','private_hook_installed_after_opt_in','repeat_enable_does_not_rehook','original_receive_called_once','settings_ui_constructed']:
+    assert type(d.get(key)) in (bool,int) and d[key] == 1,(key,d)
 assert not d.get('exception'),d
 print(json.dumps(d,indent=2))
 PY

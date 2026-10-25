@@ -113,9 +113,26 @@ class WechatReader:
         self.obj=obj;self.account={'account_dir':obj.account,'account':own,'data_root':str(self.data)}
         self.contacts={}
         result=[dict(c,**self.account) for c in contacts]
+        # Include ALL contacts (even unmonitored/group contacts) in collision
+        # detection. A unique name among monitored people alone is insufficient.
+        self.window_name_owners={}
+        for rel,path,_ in obj._db_files:
+            if Path(path).name!='contact.db':continue
+            conn=obj._open(rel)
+            try:
+                for row in conn.execute('SELECT username,alias,nick_name,remark FROM contact'):
+                    for name in (row['username'],row['alias'],row['nick_name'],row['remark']):
+                        if name:self.window_name_owners.setdefault(name,set()).add(row['username'])
+            finally:conn.close()
+        for c in result:self.add_window_titles(c)
         if recent:result=self.private_sessions()
         self.contacts.update({c['username']:c for c in result})
         return result
+
+    def add_window_titles(self,contact):
+        contact['auto_window_titles']=[name for name in
+            (contact.get(k) for k in ('username','alias','nick_name','remark'))
+            if name and getattr(self,'window_name_owners',{}).get(name)=={contact['username']}]
 
     def private_sessions(self):
         obj=self.obj
@@ -139,6 +156,7 @@ class WechatReader:
                     finally:conn.close()
                     break
             if contact:
+                self.add_window_titles(contact)
                 result.append(dict(contact,activity=(s.get('last_time'),s.get('unread'),s.get('summary'))))
             if len(result)>=100:break
         return result

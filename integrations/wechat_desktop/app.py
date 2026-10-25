@@ -35,12 +35,9 @@ class App(Controller):
         self.current_job=None;self.closing=False
         self.model_busy=False;self.pending_auto=None
         root.title('狗头微信助手 '+VERSION+' · 审核 / 自动发送')
-        root.geometry('1120x820');root.minsize(900,680)
-        style=ttk.Style(root);style.theme_use('clam')
-        style.configure('.',font=('Microsoft YaHei UI',10),background='#f4f5f7')
-        style.configure('TFrame',background='#f4f5f7')
-        style.configure('TButton',padding=(12,7))
-        style.configure('TNotebook.Tab',padding=(15,8))
+        root.geometry('1380x900');root.minsize(1120,720)
+        from appearance import setup
+        setup(root)
         self.status=tk.StringVar(value='未连接。请保持电脑版微信登录，输入准确微信号后开始。')
         self.model_settings=self.store.get('settings','model',{'key':'','model':''})
         self.data_path=tk.StringVar(value=str(Path.home()/'Documents/xwechat_files'))
@@ -55,6 +52,14 @@ class App(Controller):
         self.job_status=tk.StringVar(value='等待生成建议')
         self.resources=RESOURCES
         self.setup_runtime()
+        from persona import DEFAULT_PERSONA
+        self.persona_settings=self.store.get('settings','persona',dict(DEFAULT_PERSONA))
+        self.persona_enabled=tk.BooleanVar(value=self.persona_settings.get('enabled',True))
+        self.persona_description=tk.StringVar(value=self.persona_settings.get('description',''))
+        self.persona_expression=tk.StringVar(value=self.persona_settings.get('expression',''))
+        self.persona_avoid=tk.StringVar(value=self.persona_settings.get('avoid',''))
+        self.persona_override=tk.BooleanVar(value=False)
+        self.object_persona_description=tk.StringVar();self.object_persona_expression=tk.StringVar();self.object_persona_avoid=tk.StringVar()
         self._build()
         self.install_runtime_hooks()
         root.report_callback_exception=self.callback_exception
@@ -62,13 +67,9 @@ class App(Controller):
         root.after(150,self.tick)
 
     def _build(self):
-        header=ttk.Frame(self.root,padding=16);header.pack(fill='x')
-        ttk.Label(header,text='狗头微信助手',font=('Microsoft YaHei UI',22,'bold')).pack(side='left')
-        ttk.Label(header,text='独立窗口 · 人工审核 / 自动发送',foreground='#ad5100').pack(side='right')
-        banner=ttk.Label(self.root,text='发送前弹窗：5秒无操作默认确认；点击修改停止倒计时。仅向本次已绑定窗口的对象后台发送。',
-                         padding=(18,9),background='#fff1d6',foreground='#734a00')
-        banner.pack(fill='x')
-        book=ttk.Notebook(self.root);book.pack(fill='both',expand=True,padx=16,pady=12)
+        from appearance import workspace
+        self.tabs={}
+        book=workspace(self)
         self.tabs={}
         for name in ('微信与对象','回复工作台','长期记忆','模型与规则','行为设置','诊断日志'):
             pane=ttk.Frame(book,padding=14);book.add(pane,text=name);self.tabs[name]=pane
@@ -110,11 +111,18 @@ class App(Controller):
         ttk.Checkbutton(p,text='针对这个对象评估关系信号、未知与边界，再生成回复（同一次模型请求）',variable=self.assessment_enabled).pack(anchor='w')
         ttk.Label(p,text='此对象的背景与边界（独立保存，不套用其他人）').pack(anchor='w')
         self.notes=tk.Text(p,height=4,wrap='word',font=('Microsoft YaHei UI',11));self.notes.pack(fill='x',pady=5)
+        ttk.Separator(p).pack(fill='x',pady=12)
+        ttk.Label(p,text='此对象的人设',font=('Microsoft YaHei UI',12,'bold')).pack(anchor='w')
+        ttk.Checkbutton(p,text='为此对象使用独立人设（未勾选时沿用“模型与规则”的全局人设）',variable=self.persona_override).pack(anchor='w')
+        for label,var in (('性格与语气',self.object_persona_description),('表达习惯',self.object_persona_expression),('避免的表达',self.object_persona_avoid)):
+            ttk.Label(p,text=label).pack(anchor='w',pady=(7,2))
+            ttk.Entry(p,textvariable=var).pack(fill='x')
+        ttk.Label(p,text='保存后用于本对象的新回复。历史事实、明确边界和不主动邀请通话的规则始终优先。',foreground='#73839c').pack(anchor='w',pady=6)
         ttk.Checkbutton(p,text='允许在本机加密保存此对象聊天；关闭后停止保存和召回，原数据保留',variable=self.memory).pack(anchor='w',pady=8)
         ttk.Button(p,text='保存此对象设置',command=self.save_profile).pack(anchor='w')
         ttk.Label(p,text='启动不会发送历史消息。你可以切换微信聊天；读取按已核验的内部 ID 进行。\n多个账号匹配时停止绑定，不选择第一个。读取与模型失败不会自动切换对象。',wraplength=950).pack(anchor='w',pady=15)
         ttk.Separator(p).pack(fill='x',pady=8)
-        ttk.Label(p,text='严格后台发送：核对微信号并关联独立窗口，无需鼠标定位或保持前台；控件不可用则明确停止，不使用前台兜底。',foreground='#ad5100').pack(anchor='w')
+        ttk.Label(p,text='多个对象自动关联：先为每人打开独立聊天窗口；按完整通讯录排除重名后自动匹配，无需逐人设置或保持前台。重名/多进程需手动关联。',foreground='#ad5100').pack(anchor='w')
 
         p=self.tabs['回复工作台']
         row=ttk.Frame(p);row.pack(fill='x')
@@ -145,6 +153,7 @@ class App(Controller):
         # reachable on short screens and at Windows 125/150% text scaling.
         row=ttk.Frame(p);row.pack(fill='x',pady=5)
         self.approve_button=ttk.Button(row,text='确认发送（当前编辑内容）',command=self.approve_send)
+        self.approve_button.configure(style='Primary.TButton')
         self.approve_button.pack(side='left')
         ttk.Button(row,text='生成 / 重新生成',command=lambda:self.generate(False)).pack(side='left',padx=4)
         ttk.Button(row,text='复制建议',command=self.copy_reply).pack(side='left',padx=4)
@@ -158,8 +167,11 @@ class App(Controller):
         ttk.Label(left,textvariable=self.new_message_status,wraplength=450,foreground='#075d9a').pack(anchor='w')
         self.chat=self.scrolled_text(left,height=15,readonly=True)
         ttk.Label(right,textvariable=self.job_status,wraplength=440).pack(anchor='w')
-        self.reply=self.scrolled_text(right,height=9)
-        self.reason=self.scrolled_text(right,height=5,readonly=True)
+        reply_panes=ttk.Panedwindow(right,orient='vertical');reply_panes.pack(fill='both',expand=True)
+        reply_area=ttk.Frame(reply_panes);reason_area=ttk.Frame(reply_panes)
+        reply_panes.add(reply_area,weight=2);reply_panes.add(reason_area,weight=1)
+        self.reply=self.scrolled_text(reply_area,height=6)
+        self.reason=self.scrolled_text(reason_area,height=4,readonly=True)
 
         p=self.tabs['长期记忆']
         ttk.Label(p,textvariable=self.memory_status,font=('Microsoft YaHei UI',12,'bold')).pack(anchor='w',pady=5)
@@ -185,7 +197,15 @@ class App(Controller):
         ttk.Label(review_page,textvariable=self.review_status,wraplength=960).pack(anchor='w')
         self.review_text=self.scrolled_text(review_page,height=18,readonly=True)
 
-        p=self.tabs['模型与规则']
+        p=self.scrollable_form(self.tabs['模型与规则'])
+        ttk.Label(p,text='我的人设',font=('Microsoft YaHei UI',16,'bold')).pack(anchor='w',pady=(0,8))
+        ttk.Checkbutton(p,text='启用人设（关闭后全局与对象独立人设都不使用，历史表达学习保留）',variable=self.persona_enabled).pack(anchor='w')
+        for label,var in (('性格与语气',self.persona_description),('表达习惯',self.persona_expression),('避免的表达',self.persona_avoid)):
+            ttk.Label(p,text=label).pack(anchor='w',pady=(7,2))
+            ttk.Entry(p,textvariable=var).pack(fill='x')
+        ttk.Button(p,text='保存全局人设',command=self.save_persona,style='Primary.TButton').pack(anchor='w',pady=10)
+        ttk.Label(p,text='人设决定表达方向，历史原话帮助保持你的用词；关系阶段、目标与边界仍按对象独立生效。\n人设不训练模型权重、不编造经历，不保证对方无法察觉AI辅助。每项最多1500字，保存后用于新生成的回复。',wraplength=920,foreground='#73839c').pack(anchor='w')
+        ttk.Separator(p).pack(fill='x',pady=18)
         ttk.Label(p,text='DeepSeek 官方 API Key（本机加密保存）').pack(anchor='w')
         ttk.Entry(p,textvariable=self.key,show='•',width=75).pack(anchor='w',pady=8)
         ttk.Label(p,text='模型（从你的账号获取列表，也可直接输入准确模型名）').pack(anchor='w')
@@ -237,11 +257,10 @@ class App(Controller):
         ttk.Button(row,text='清空日志',command=self.clear_logs).pack(side='left',padx=6)
         ttk.Label(p,text=str(self.diagnostics.folder),wraplength=970).pack(anchor='w',pady=5)
         self.log_text=self.scrolled_text(p,height=18,readonly=True)
-        self.book.bind('<<NotebookTabChanged>>',lambda event:self.refresh_logs() if self.book.select()==str(self.tabs['诊断日志']) else None)
-        ttk.Label(self.root,textvariable=self.status,relief='sunken',padding=9,wraplength=1050).pack(fill='x')
+        self.book.bind('<<NotebookTabChanged>>',lambda event:self.refresh_logs() if self.book.select()==str(self.tabs['诊断日志']) else None,add='+')
 
     def scrollable_form(self,parent):
-        canvas=tk.Canvas(parent,background='#f4f5f7',highlightthickness=0)
+        canvas=tk.Canvas(parent,background='#f8faff',highlightthickness=0)
         bar=ttk.Scrollbar(parent,orient='vertical',command=canvas.yview)
         bar.pack(side='right',fill='y');canvas.pack(side='left',fill='both',expand=True)
         canvas.configure(yscrollcommand=bar.set)
@@ -366,7 +385,14 @@ def main():
     parser.add_argument('--diagnose',metavar='WECHAT_ID')
     parser.add_argument('--wechat-data')
     parser.add_argument('--report')
+    parser.add_argument('--verify-filehelper',metavar='REPORT',help='仅预检文件传输助手；指定报告路径，隔离测试数据保存在该目录')
+    parser.add_argument('--send-test-message',action='store_true',help='明确允许向文件传输助手发送固定后台测试文字，需配合--verify-filehelper')
+    parser.add_argument('--continue-test',action='store_true',help='仅继续上轮已有唯一回执的固定测试；最多4轮，未知结果不重试')
     args=parser.parse_args()
+    if args.send_test_message and not args.verify_filehelper:parser.error('--send-test-message需配合--verify-filehelper')
+    if args.verify_filehelper:
+        from filehelper_verification import run
+        return run(args.verify_filehelper,send=args.send_test_message,continued=args.continue_test,popup=True)
     if args.ui_test:
         import tempfile
         with tempfile.TemporaryDirectory() as folder:

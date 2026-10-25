@@ -180,6 +180,34 @@ class WindowSender:
     def __init__(self,backend=None,diagnostics=None):
         self.backend=backend or NativeWindows();self.bindings={};self.diagnostics=diagnostics;self.last_stage='idle';self.submission_started=None
     def candidates(self):return self.backend.windows()
+    def auto_bind(self,people,windows=None):
+        """Unique full-address-book names only; never assign one window twice."""
+        windows=self.candidates() if windows is None else windows
+        added=[];blocked={}
+        for person,state in people.items():
+            binding=state['binding']
+            if person in self.bindings:
+                try:self.check(person,binding);continue
+                except UserError:self.bindings.pop(person,None)
+            names=set(binding.get('auto_window_titles',[]))
+            matches=[w for w in windows if w['title'] in names and w['title'] not in ('微信','Weixin','WeChat')]
+            # Multiple active processes/accounts cannot be identified from titles.
+            if any(not w.get('pid') for w in windows) or len({w['pid'] for w in windows})!=1:
+                blocked[person]='多个微信进程，需手动关联';continue
+            if len(matches)!=1:
+                blocked[person]='未找到唯一窗口；请打开独立聊天窗口，重名需手动关联';continue
+            window=matches[0]
+            owners=[p for p,s in people.items() if window['title'] in set(s['binding'].get('auto_window_titles',[]))]
+            if owners!=[person]:
+                blocked[person]='联系人名称不唯一，需手动关联';continue
+            try:
+                now=self.backend.info(window['hwnd'])
+                if any(now[k]!=window[k] for k in ('title','pid','exe')):raise UserError('窗口已变化')
+                self.bind(person,binding,now,[max(1,now['width']//2),max(1,now['height']*3//4)])
+                self.bindings[person]['automatic_binding']=True;added.append(person)
+                if self.diagnostics:self.diagnostics.event('send_window_auto_bound',person=person,stage='binding',bound_hwnd=now['hwnd'],pid=now['pid'])
+            except UserError:blocked[person]='窗口无法自动关联，请检查或手动设置'
+        return added,blocked
     def bind(self,person,binding,window,point):
         if any(p!=person and b['hwnd']==window['hwnd'] for p,b in self.bindings.items()):
             raise UserError('这个窗口已关联另一位对象，不能同时绑定给不同联系人。')

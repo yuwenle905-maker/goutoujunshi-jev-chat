@@ -31,6 +31,7 @@ class BackgroundTests(unittest.TestCase):
         def click(control,bound,submit=False):
             if submit:b.trace('submit_background');self.commits()
         b._click_control=Mock(side_effect=click)
+        b._post_key=Mock(side_effect=lambda hwnd,key:self.commits())
         units=[]
         def post(hwnd,msg,wparam,lparam):
             units.append(wparam)
@@ -53,6 +54,19 @@ class BackgroundTests(unittest.TestCase):
         b=self.setup_backend('用户草稿')
         with self.assertRaisesRegex(UserError,'已有草稿'):b._deliver_controls(None,self.bound,'建议',lambda:None)
         self.assertEqual(self.value.Value,'用户草稿');self.commits.assert_not_called()
+
+    def test_qt_delivery_never_posts_mouse_click_or_activation(self):
+        b=self.setup_backend();b._deliver_controls(None,self.bound,'后台文字',lambda:None)
+        b._click_control.assert_not_called()
+        b._post_key.assert_called_once_with(123,0x0D)
+        self.assertTrue(all(c.args[1]==0x102 for c in b._post.call_args_list))
+
+    def test_directed_enter_has_scan_code_and_keyup_without_global_input(self):
+        b=self.setup_backend();b.u.MapVirtualKeyW.return_value=0x1C;b._post=Mock()
+        BackgroundWindows._post_key(b,123,0x0D)
+        self.assertEqual([c.args for c in b._post.call_args_list],
+            [(123,0x100,0x0D,(0x1C<<16)|1),(123,0x101,0x0D,(0x1C<<16)|0xC0000001)])
+        b.key.assert_not_called();b.foreground.assert_not_called()
 
     def test_reviewed_identical_draft_can_be_committed_without_retyping(self):
         b=self.setup_backend('已审核');self.value.SetValue=Mock(side_effect=AssertionError())
@@ -79,7 +93,7 @@ class BackgroundTests(unittest.TestCase):
     def test_generic_input_requires_exact_process_and_root_ownership(self):
         b,bound,root=self.generic_input()
         self.assertIs(b._input(None,bound),self.input)
-        b.info.assert_called_once_with(123)
+        self.assertEqual(b.info.call_count,2)
 
     def test_generic_input_from_another_process_is_rejected(self):
         b,bound,root=self.generic_input();self.input.ProcessId=8
@@ -95,11 +109,20 @@ class BackgroundTests(unittest.TestCase):
         b,bound,root=self.generic_input();bound['title']='微信'
         with self.assertRaisesRegex(UserError,'归属核验'):b._input(None,bound)
 
-    def test_generic_input_rejects_changed_window_and_root_title(self):
+    def test_generic_input_rejects_changed_native_window(self):
         b,bound,root=self.generic_input();b.info.return_value['title']='乙'
         with self.assertRaisesRegex(UserError,'归属核验'):b._input(None,bound)
-        b.info.return_value=dict(bound);root.Name='乙'
-        with self.assertRaisesRegex(UserError,'归属核验'):b._input(None,bound)
+
+    def test_generic_input_accepts_provider_root_label_with_verified_native_identity(self):
+        b,bound,root=self.generic_input();root.Name='微信控件根标签'
+        self.assertIs(b._input(None,bound),self.input)
+        self.assertEqual(b.info.call_count,2)
+
+    def test_generic_input_rechecks_native_title_after_parent_walk(self):
+        b,bound,root=self.generic_input();b.info.side_effect=[dict(bound),dict(bound,title='乙')]
+        with self.assertRaises(UserError) as caught:b._input(None,bound)
+        self.assertEqual(caught.exception.probe_details['owner_failure'],'native_window_changed')
+        self.commits.assert_not_called()
 
     def test_generic_input_missing_or_looping_parent_is_rejected(self):
         b,bound,root=self.generic_input();self.input.GetParentControl.return_value=None

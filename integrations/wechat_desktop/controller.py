@@ -28,6 +28,7 @@ class Controller:
         self.window_sender.backend.clipboard_owner=self.root.winfo_id()
         self.delivery=Delivery(self.reply_queue,self.store,self.window_sender,self.behavior,diagnostics=self.diagnostics)
         self.send_busy=False;self.window_candidates=[]
+        self.next_window_scan=0;self.waiting_window_jobs={}
         self.send_window=tk.StringVar();self.send_status=tk.StringVar(value='人工审核模式；请选择对象并绑定独立聊天窗口。')
         self.transport_status=tk.StringVar(value='严格后台通道：不切前台、不使用鼠标键盘或剪贴板；不可用时停止，不降级。')
         self.learning=tk.BooleanVar(value=True)
@@ -128,6 +129,7 @@ class Controller:
         with self.reply_queue.lock:
             for person in list(self.delivery.pending):self.delivery.fail(person)
         self.window_sender.bindings.clear()
+        self.waiting_window_jobs.clear();self.next_window_scan=0
         self.reply_queue.stop()
         self.pending_connection=None
         self.pending_people.clear();self.people.clear();self.latest_jobs.clear()
@@ -302,12 +304,18 @@ class Controller:
         if self.person and self.person in self.people:
             self.form_edits[self.person]={'memory':self.memory.get(),'stage':self.stage.get(),'goal':self.goal.get(),
                 'current_state':self.relation_state.get(),'assess_relationship':self.assessment_enabled.get(),
+                'persona_override':self.persona_override.get(),'persona_description':self.object_persona_description.get(),
+                'persona_expression':self.object_persona_expression.get(),'persona_avoid':self.object_persona_avoid.get(),
                 'notes':self.notes.get('1.0','end-1c'),'summary':self.summary.get('1.0','end-1c')}
             old=self.reply_queue.jobs.get(self.current_job)
             if old and old['person']==self.person and old['status']=='ready':old['edited_reply']=self.reply.get('1.0','end-1c')
         item=self.people[person]
         self.person=person;self.binding=item['binding'];self.profile=item['profile'];self.messages=item['messages']
         profile=dict(self.profile,**self.form_edits.get(person,{}))
+        self.persona_override.set(profile.get('persona_override',False))
+        self.object_persona_description.set(profile.get('persona_description',''))
+        self.object_persona_expression.set(profile.get('persona_expression',''))
+        self.object_persona_avoid.set(profile.get('persona_avoid',''))
         self.conversation.set(self.person_label(person))
         self.memory.set(profile.get('memory',False));self.stage.set(profile.get('stage','了解中'));self.goal.set(profile.get('goal','自然接话'))
         self.learning.set(self.store.get('settings','learn:'+person,True))
@@ -451,8 +459,13 @@ class Controller:
         if not self.person:
             if not quiet:self.show_error(UserError('请先连接并选择一个聊天对象。'))
             return
+        from persona import normalize
+        preferences=normalize({'description':self.object_persona_description.get(),
+            'expression':self.object_persona_expression.get(),'avoid':self.object_persona_avoid.get()})
         self.profile.update(memory=self.memory.get(),stage=self.stage.get().strip(),goal=self.goal.get().strip(),notes=self.notes.get('1.0','end-1c'),
-                            current_state=self.relation_state.get().strip(),assess_relationship=self.assessment_enabled.get())
+                            current_state=self.relation_state.get().strip(),assess_relationship=self.assessment_enabled.get(),
+                            persona_override=self.persona_override.get(),persona_description=preferences['description'],
+                            persona_expression=preferences['expression'],persona_avoid=preferences['avoid'])
         self.store.save('objects',self.person,self.profile)
         self.store.remember(self.person,self.messages);self.update_memory()
         if not quiet:self.report('已保存当前对象设置。其他对象使用各自档案；未设置的对象使用默认目标，不长期保存聊天。')
@@ -471,6 +484,16 @@ class Controller:
         self.store.save('settings','model',self.model_settings)
         self.model_fetch_status.set('模型设置已加密保存。')
         self.report('模型设置已保存。')
+
+    def save_persona(self):
+        try:
+            from persona import normalize
+            value=normalize({'enabled':self.persona_enabled.get(),'description':self.persona_description.get(),
+                'expression':self.persona_expression.get(),'avoid':self.persona_avoid.get()})
+            self.store.save('settings','persona',value);self.persona_settings=value
+            self.report('全局人设已加密保存；对之后新生成的回复生效，独立对象人设仍按对象设置。')
+            self.diagnostics.event('persona_saved',status='enabled' if value['enabled'] else 'disabled')
+        except Exception as exc:self.show_error(exc)
 
     def model_engine(self):return Engine(self.resources/'skill',network='direct' if self.network.get()=='直连 DeepSeek' else 'system')
 
@@ -518,6 +541,8 @@ class Controller:
             if automatic and not self.behavior.can_auto()[0]:return
             if not automatic:self.save_profile(quiet=True)
             item=self.people[person];profile=dict(item['profile'])
+            from persona import resolve
+            profile['_persona']=resolve(self.persona_settings,profile)
             profile['_style_examples']=self.store.get('settings','style:'+person,[]) if self.store.get('settings','learn:'+person,True) else []
             remembered=self.store.get('objects',person,{}).get('memory',False)
             if not remembered:profile['summary']=''
@@ -594,6 +619,12 @@ class Controller:
     def refresh_send_windows(self,quiet=False):
         try:
             self.window_candidates=self.window_sender.candidates()
+            added,blocked=self.window_sender.auto_bind(self.people,self.window_candidates)
+            self.next_window_scan=time.monotonic()+3
+            self.refresh_inbox()
+            for person in added:
+                job_id=self.waiting_window_jobs.pop(person,None)
+                if job_id:self.root.after(0,lambda job_id=job_id:self.submit_send(job_id,automatic=True))
             self.window_box.configure(values=[f"{w['title']} · 窗口 {w['hwnd']}" for w in self.window_candidates])
             self.send_window.set('')
             if self.person:
@@ -606,7 +637,7 @@ class Controller:
                 if bound:
                     try:self.window_sender.check(self.person,binding);self.send_status.set('此对象发送窗口已绑定，可审核发送。');return
                     except Exception:self.window_sender.bindings.pop(self.person,None)
-                self.send_status.set('发送尚未设置：'+('已找到同名独立窗口，点“设置发送窗口”核对并关联。' if len(matches)==1 else '先将此微信会话打开为独立窗口，再点“设置发送窗口”。'))
+                self.send_status.set('等待自动关联：'+blocked.get(self.person,'请打开独立聊天窗口；无法唯一匹配时手动设置。'))
         except Exception as exc:
             if quiet:self.send_status.set('微信窗口读取失败，请点“刷新微信窗口”重试。')
             else:self.show_error(exc)
@@ -749,7 +780,13 @@ class Controller:
             person=job['person'];binding=dict(self.people[person]['binding'])
             if person in self.delivery.pending:raise UserError('此对象正在等待发送回执，请勿重复发送。')
             if person in self.delivery.unknown_people:raise UserError('此对象上次发送结果不明，请核对微信后恢复。')
+            if person not in self.window_sender.bindings:
+                # Refresh ALL people; workbench selection must not gate sending.
+                self.refresh_send_windows(quiet=True)
+                if automatic and person not in self.window_sender.bindings:
+                    self.waiting_window_jobs[person]=job_id
             self.window_sender.check(person,binding)
+            self.waiting_window_jobs.pop(person,None)
             text=text if text is not None else job['result']['reply']
             if not confirmed:self.queue_send_confirmation(job_id,text,automatic);return
             self.send_busy=True;self.send_status.set('正在通过后台控件发送；不占用鼠标键盘或剪贴板。')
@@ -834,6 +871,9 @@ class Controller:
 
     def tick(self):
         try:
+            if self.enabled.get() and self.people and not self.send_busy and not self.binding_busy and time.monotonic()>=self.next_window_scan:
+                self.next_window_scan=time.monotonic()+3
+                self.refresh_send_windows(quiet=True)
             self.pump_follow()
             if self.book.select()==str(self.tabs['诊断日志']) and self.log_revision!=self.diagnostics.count:self.refresh_logs()
             self.generation_progress()

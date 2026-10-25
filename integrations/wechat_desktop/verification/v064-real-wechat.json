@@ -1,0 +1,23 @@
+{
+  "version": "0.6.4",
+  "date": "2026-10-25",
+  "wechat_version": "4.1.15.13",
+  "recipient": "filehelper",
+  "fixed_test_message": "后台发送测试",
+  "successful_background_rounds": 3,
+  "all_receipts_confirmed": true,
+  "foreground_unchanged": true,
+  "cursor_unchanged": true,
+  "clipboard_unchanged": true,
+  "popup_idle_timeout_rounds": 2,
+  "popup_elapsed_seconds": [
+    5.43,
+    5.3
+  ],
+  "final_exe_real_test": true,
+  "final_exe_sha256": "a9974357ca3a68b2f6788af38c14436a2cece6c3c08e3788d7a14cf2f5f58070",
+  "model_called_in_test": false,
+  "other_contacts_tested": false,
+  "minimized_window_tested": false,
+  "scope": "Actual fixed-text background transport and confirmation to filehelper on this computer; does not claim arbitrary clients, contacts or minimized/locked states."
+}

@@ -85,6 +85,12 @@ class BackgroundWindows(NativeWindows):
             return handle
         return 0
 
+    def _post_key(self,hwnd,key):
+        self.u.MapVirtualKeyW.argtypes=[W.UINT,W.UINT];self.u.MapVirtualKeyW.restype=W.UINT
+        scan=int(self.u.MapVirtualKeyW(key,0))
+        self._post(hwnd,0x100,key,(scan<<16)|1)
+        self._post(hwnd,0x101,key,(scan<<16)|0xC0000001)
+
     def _click_control(self,control,bound,submit=False):
         rect=control.BoundingRectangle
         if rect.right<=rect.left or rect.bottom<=rect.top:raise UserError('后台控件不可用：当前无法定位按钮；不会恢复或切换前台。')
@@ -112,9 +118,8 @@ class BackgroundWindows(NativeWindows):
             guard()
             if not self.u.SendMessageTimeoutW(native,0xC,0,ctypes.addressof(buf),2,2000,ctypes.byref(result)) or not result.value:raise UserError('后台投递失败：原生输入框拒绝文字，未发送。')
         else:
-            # Qt custom input: target-only click and UTF-16 WM_CHAR. Never use
-            # UIA SetValue/Invoke: native providers may focus/activate on their own.
-            self._click_control(control,bound)
+            # Qt custom input: only directed UTF-16 WM_CHAR. A posted mouse
+            # click was observed activating real WeChat; never click to focus.
             raw=text.encode('utf-16-le')
             for offset in range(0,len(raw),2):
                 guard();self._post(bound['hwnd'],0x102,int.from_bytes(raw[offset:offset+2],'little'),1)
@@ -148,7 +153,7 @@ class BackgroundWindows(NativeWindows):
             # to the exact independent window instead of matching it as a name.
             try:self._verify_input_owner(control,bound)
             except UserError as exc:
-                exc.probe_details=dict(details,input_failure='input_owner_mismatch');raise
+                exc.probe_details=dict(getattr(exc,'probe_details',{}),**details,input_failure='input_owner_mismatch');raise
             return control
         # Qt's voice hint can end in spaces/newlines. Strip those before matching
         # its anchored suffix. Exact labels take priority (a real contact can be
@@ -162,25 +167,32 @@ class BackgroundWindows(NativeWindows):
         return control
 
     def _verify_input_owner(self,control,bound):
-        def blocked():return UserError('后台控件身份不符：通用输入框未通过独立窗口归属核验，未发送。')
-        if bound['title'] in ('微信','Weixin','WeChat') or not bound.get('pid'):raise blocked()
-        current=self.info(bound['hwnd'])
-        if any(current.get(k)!=bound.get(k) for k in ('title','pid','exe')):raise blocked()
-        if Path(current['exe']).name.lower() not in ('weixin.exe','wechat.exe'):raise blocked()
+        def blocked(code):
+            exc=UserError('后台控件身份不符：通用输入框未通过独立窗口归属核验，未发送。')
+            exc.probe_details={'owner_failure':code};return exc
+        def verify_window():
+            current=self.info(bound['hwnd'])
+            if any(current.get(k)!=bound.get(k) for k in ('title','pid','exe')):raise blocked('native_window_changed')
+            if Path(current['exe']).name.lower() not in ('weixin.exe','wechat.exe'):raise blocked('not_wechat_process')
+        if bound['title'] in ('微信','Weixin','WeChat') or not bound.get('pid'):raise blocked('not_independent_window')
+        verify_window()
         node=control
         try:
             for _ in range(32):
-                if node is None or int(node.ProcessId or 0)!=bound['pid']:raise blocked()
+                if node is None:raise blocked('parent_chain_missing')
+                if int(node.ProcessId or 0)!=bound['pid']:raise blocked('control_process_mismatch')
                 handle=int(node.NativeWindowHandle or 0)
                 if handle:
                     if handle==bound['hwnd']:
-                        if (node.Name or '').strip()!=bound['title'].strip():raise blocked()
+                        # UIA root Name is a provider label, not authoritative
+                        # chat identity. Re-read native title/PID/path instead.
+                        verify_window()
                         return
-                    if self.u.GetAncestor(handle,2)!=bound['hwnd']:raise blocked()
+                    if self.u.GetAncestor(handle,2)!=bound['hwnd']:raise blocked('control_root_mismatch')
                 node=node.GetParentControl()
         except UserError:raise
-        except Exception:raise blocked() from None
-        raise blocked()
+        except Exception:raise blocked('provider_unreadable') from None
+        raise blocked('parent_chain_limit')
 
     def _value(self,control):
         for method in ('GetValuePattern','GetLegacyIAccessiblePattern'):
@@ -260,7 +272,11 @@ class BackgroundWindows(NativeWindows):
             if not parent or identifier<0:raise UserError('后台投递失败：发送按钮标识不可用。')
             self.trace('submit_background')
             self._post(parent,0x111,identifier&65535,native)
-        else:self._click_control(button,bound,submit=True)
+        else:
+            # Directed Enter to this independently bound chat, after exact
+            # readback. Posted mouse clicks can activate real Qt windows.
+            self.trace('submit_background')
+            self._post_key(bound['hwnd'],0x0D)
         self.trace('background_submitted')
 
     def _deliver_controls(self,auto,bound,text,guard):

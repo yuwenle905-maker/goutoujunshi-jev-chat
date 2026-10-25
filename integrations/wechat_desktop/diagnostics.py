@@ -59,7 +59,7 @@ class Diagnostics:
         allowed={'stage','status','mode','reason','exception_type','frames','winerror','elapsed_ms','input_length',
             'expected_length','foreground_hwnd','bound_hwnd','pid','expected_width','expected_height',
             'actual_width','actual_height','clipboard_formats','clipboard_step','count','attempt','finish_reason','content_length','reasoning_length','format_status',
-            'node_count','input_count','mmui_count','input_failure','gate_original','gate_changed','gate_restored'}
+            'node_count','input_count','mmui_count','input_failure','owner_failure','gate_original','gate_changed','gate_restored'}
         with self.lock:
             self.count+=1
             row={'time':dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).isoformat(timespec='milliseconds'),
@@ -82,7 +82,7 @@ class Diagnostics:
         frames=[f'{Path(f.filename).name}:{f.lineno}:{f.name}' for f in traceback.extract_tb(exc.__traceback__)[-10:]]
         return self.event(event,'ERROR',person,job,stage=stage,reason=reason,
             exception_type=type(exc).__name__,winerror=getattr(exc,'winerror',None),clipboard_step=getattr(exc,'clipboard_step',None),frames=frames,
-            **{k:v for k,v in getattr(exc,'probe_details',{}).items() if k in ('node_count','input_count','mmui_count','input_failure','gate_original','gate_changed','gate_restored')})
+            **{k:v for k,v in getattr(exc,'probe_details',{}).items() if k in ('node_count','input_count','mmui_count','input_failure','owner_failure','gate_original','gate_changed','gate_restored')})
 
     def text(self):
         with self.lock:return '\n'.join(json.dumps(r,ensure_ascii=False) for r in self.rows)

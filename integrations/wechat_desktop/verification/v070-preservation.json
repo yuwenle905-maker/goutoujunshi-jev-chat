@@ -1,0 +1,23 @@
+{
+  "version": "0.7.0",
+  "unchanged_transport_files": [
+    "window_sender.py",
+    "background_sender.py",
+    "delivery.py",
+    "send_confirmation.py",
+    "runtime.py",
+    "wechat_reader.py",
+    "filehelper_verification.py"
+  ],
+  "existing_controller_changes": [
+    "generate",
+    "save_profile",
+    "select_person"
+  ],
+  "all_original_app_commands_retained": true,
+  "original_command_bindings": 44,
+  "new_persona_save_binding": 1,
+  "real_send_in_this_version": false,
+  "real_model_in_this_version": false,
+  "transport_baseline": "0.6.5; previous filehelper tests documented separately; no new sending authorization consumed"
+}

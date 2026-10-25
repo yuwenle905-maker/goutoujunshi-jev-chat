@@ -1,0 +1,20 @@
+{
+  "version": "0.6.5",
+  "source_commit": "3aa58d8b51a4e7c1c81c0b4473fbccd67a31da90",
+  "exe_sha256": "cce69a9685f25d3fe01ce514df44b8cf08a371fd3f9584e9f3647c76256af857",
+  "offline_checks": 223,
+  "real_wechat_version": "4.1.15.13",
+  "real_recipient": "filehelper",
+  "real_test_message_count": 1,
+  "automatic_binding_verified": true,
+  "receipt_confirmed": true,
+  "foreground_unchanged": true,
+  "clipboard_unchanged": true,
+  "cursor_verdict": "inconclusive_user_confirmed_mouse_use_during_test",
+  "approval_mode": "idle_timeout",
+  "approval_elapsed_seconds": 5.64,
+  "real_model_tested": false,
+  "other_contacts_tested": false,
+  "minimized_tested": false,
+  "github_pushed": false
+}

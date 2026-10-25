@@ -173,7 +173,7 @@ static void GTAppear(UIViewController *self, SEL cmd, BOOL animated) {
     } @catch (__unused NSException *exception) { GTLog(@"navigation_extension_exception"); }
 }
 void GTEnableRuntimeHooks(void) {
-    NSAssert(NSThread.isMainThread, @"Main queue only");
+    NSCAssert(NSThread.isMainThread, @"Main queue only");
     static BOOL navigationInstalled = NO;
     @try {
         GoutouWechatAI_BootMark("private_hooks_requested_by_user");

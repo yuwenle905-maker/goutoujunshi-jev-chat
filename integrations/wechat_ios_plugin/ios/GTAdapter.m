@@ -44,7 +44,7 @@ static void GTReceive(id self, SEL cmd, id session, id wrap) {
 }
 void GTInstallAdapter(void) {
     static BOOL installed = NO;
-    NSAssert(NSThread.isMainThread, @"Hooks must be installed on main thread");
+    NSCAssert(NSThread.isMainThread, @"Hooks must be installed on main thread");
     if (installed) return;
     if (![NSBundle.mainBundle.bundleIdentifier isEqual:@"com.tencent.xin"]) return;
     NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];

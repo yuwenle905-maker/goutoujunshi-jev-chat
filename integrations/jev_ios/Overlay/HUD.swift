@@ -263,7 +263,7 @@ private final class HUDController: UIViewController {
             DispatchQueue.main.async { delegate.hideForLock() }
         }, "com.apple.springboard.lockstate" as CFString, nil, .deliverImmediately)
         controller.bubble.isHidden = true
-        AleProbeWindow(window, true) { passed, detail in
+        AleChooseEventRoute(window) { passed, detail in
             Task { @MainActor in
                 guard passed else {
                     HUDState.report("悬浮内部触摸自检失败（75）：\(detail ?? "未收到按钮动作")；iOS \(UIDevice.current.systemVersion)")

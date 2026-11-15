@@ -9,6 +9,27 @@ static void WaitForDelivery(NSUInteger previous, CFAbsoluteTime deadline, void (
     });
 }
 
+static void ProbeRoute(UIWindow *window, BOOL windowRoute, void (^completion)(BOOL, NSString *)) {
+    [TSEventFetcher resetFailure];
+    [TSEventFetcher useWindowRoute:windowRoute];
+    AleProbeWindow(window, NO, ^(BOOL disabledReceived, NSString *negative) {
+        if (disabledReceived) { completion(NO, @"禁用按钮错误响应，未接受此路线"); return; }
+        AleProbeWindow(window, YES, ^(BOOL received, NSString *positive) {
+            completion(received, [NSString stringWithFormat:@"%@；禁用对照：%@；启用对照：%@",
+                windowRoute ? @"UIWindow路线" : @"UIApplication路线", negative, positive]);
+        });
+    });
+}
+
+void AleChooseEventRoute(UIWindow *window, void (^completion)(BOOL, NSString *)) {
+    ProbeRoute(window, NO, ^(BOOL appPassed, NSString *appDetail) {
+        if (appPassed) { completion(YES, appDetail); return; }
+        ProbeRoute(window, YES, ^(BOOL windowPassed, NSString *windowDetail) {
+            completion(windowPassed, [appDetail stringByAppendingFormat:@" / %@", windowDetail]);
+        });
+    });
+}
+
 // A real UIControl action delivered by the production UITouch/event source.
 // No sendActionsForControlEvents, direct callback invocation or host-app input.
 void AleProbeWindow(UIWindow *window, BOOL enabled, void (^completion)(BOOL, NSString *)) {

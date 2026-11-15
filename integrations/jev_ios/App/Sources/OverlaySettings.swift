@@ -86,7 +86,7 @@ private func personaGID(_ attr: UnsafePointer<posix_spawnattr_t?>, _ id: gid_t) 
             }
         }
         close(fds[1])
-        for _ in 0..<100 {
+        for _ in 0..<150 {
             if let data = try? Data(contentsOf: statusURL),
                let item = try? JSONSerialization.jsonObject(with: data) as? [String: String], let message = item["message"] {
                 try? FileManager.default.removeItem(at: statusURL)

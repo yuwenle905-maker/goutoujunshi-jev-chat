@@ -12,6 +12,8 @@ NS_ASSUME_NONNULL_BEGIN
 @interface TSEventFetcher : NSObject
 + (NSString *)lastFailure;
 + (NSUInteger)deliveryCount;
++ (void)useWindowRoute:(BOOL)enabled;
++ (void)resetFailure;
 + (NSInteger)receiveAXEventID:(NSInteger)pointId
            atGlobalCoordinate:(CGPoint)point
                withTouchPhase:(UITouchPhase)phase

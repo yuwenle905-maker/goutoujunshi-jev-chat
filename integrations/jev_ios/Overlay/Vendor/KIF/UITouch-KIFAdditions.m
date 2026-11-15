@@ -23,12 +23,14 @@
 
   // Create a fake tap touch
   [self setWindow:window];  // Wipes out some values. Needs to be first.
+  if ([self respondsToSelector:@selector(setTapCount:)]) [self setTapCount:1];
   [self _setLocationInWindow:point resetPrevious:YES];
 
   UIView *hitTestView = view;
 
   [self setView:hitTestView];
   [self setPhase:UITouchPhaseBegan];
+  if ([self respondsToSelector:@selector(_setIsFirstTouchForView:)]) [self _setIsFirstTouchForView:YES];
   if (![[NSProcessInfo processInfo] isiOSAppOnMac] &&
       ![[NSProcessInfo processInfo] isMacCatalystApp])
   {

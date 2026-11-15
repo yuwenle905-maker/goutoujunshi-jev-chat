@@ -10,6 +10,7 @@
 #import "IOKit+SPI.h"
 
 @interface UITouch (Private)
+- (void)setTapCount:(NSUInteger)count;
 
 - (void)setWindow:(UIWindow *)window;
 - (void)setView:(UIView *)view;

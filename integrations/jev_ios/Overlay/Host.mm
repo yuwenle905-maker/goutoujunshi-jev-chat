@@ -50,7 +50,9 @@ static void Event(void *, void *, IOHIDServiceRef, IOHIDEventRef event) {
         UITouchPhase phase = [rep isTouchDown] ? UITouchPhaseBegan :
             [rep isMove] ? UITouchPhaseMoved : [rep isCancel] ? UITouchPhaseCancelled : UITouchPhaseEnded;
         NSInteger pointer = [[rep.handInfo.paths firstObject] pathIdentity];
-        if (pointer < 1 || pointer > 98) return;
+        // AX identities need not fit our local UITouch pool. Preserve upstream
+        // normalization instead of dropping valid touches with larger IDs.
+        pointer = MIN(MAX(pointer, 1), 98);
         [TSEventFetcher receiveAXEventID:pointer atGlobalCoordinate:rep.location withTouchPhase:phase inWindow:window onView:hit];
     });
 }

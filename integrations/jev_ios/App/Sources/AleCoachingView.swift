@@ -20,13 +20,34 @@ struct AleCoachingSection: View {
                 Text("会调整目标、人设和表达方式；保留实际关系阶段、昵称和你的自定义限制。保存对象后生效。")
                     .font(.caption).foregroundStyle(Palette.secondary)
             }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("我的人设与性格").font(.caption).foregroundStyle(Palette.secondary)
             TextField("我的人设与性格", text: field(\.persona), axis: .vertical).lineLimit(2...5)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("表达风格，例如松弛幽默、温柔直球").font(.caption).foregroundStyle(Palette.secondary)
             TextField("表达风格，例如松弛幽默、温柔直球", text: field(\.tone))
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("推进方式，例如自然回应、轻度试探").font(.caption).foregroundStyle(Palette.secondary)
             TextField("推进方式，例如自然回应、轻度试探", text: field(\.progression))
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("双方投入，例如我主动更多").font(.caption).foregroundStyle(Palette.secondary)
             TextField("双方投入，例如我主动更多", text: field(\.investment))
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("昵称偏好，例如宝宝、名字或不用昵称").font(.caption).foregroundStyle(Palette.secondary)
             TextField("昵称偏好，例如宝宝、名字或不用昵称", text: field(\.nicknames))
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("亲密表达偏好，例如撒娇、直球、日常拌嘴").font(.caption).foregroundStyle(Palette.secondary)
             TextField("亲密表达偏好，例如撒娇、直球、日常拌嘴", text: field(\.expression), axis: .vertical).lineLimit(2...4)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("避免的表达，例如连续反问、主动邀约").font(.caption).foregroundStyle(Palette.secondary)
             TextField("避免的表达，例如连续反问、主动邀约", text: field(\.avoid), axis: .vertical).lineLimit(2...4)
+            }
         }.onAppear { preset = relationship.coaching?.preset ?? "自定义" }
             .onChange(of: relationship.id) { _ in preset = relationship.coaching?.preset ?? "自定义" }
     }

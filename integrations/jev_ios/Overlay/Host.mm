@@ -4,7 +4,6 @@
 #import "Bridge.h"
 #import <dlfcn.h>
 #import <objc/runtime.h>
-#import <IOSurface/IOSurface.h>
 #import "BackboardServices.h"
 #import "UIApplication+Private.h"
 #import "AXEventRepresentation.h"
@@ -67,7 +66,8 @@ int AleRunHUD(void) {
         if (!singleton || !initialize || !display || !gs || !events || !NSClassFromString(@"SBSAccessibilityWindowHostingController")) return 70;
         [UIScreen initialize]; CFRunLoopGetCurrent(); gs(); display(); initialize();
         singleton(NSClassFromString(@"HUDMainApplication"));
-        id<UIApplicationDelegate> delegate = [[NSClassFromString(@"AleHUDDelegate") alloc] init];
+        static id<UIApplicationDelegate> delegate;
+        delegate = [[NSClassFromString(@"AleHUDDelegate") alloc] init];
         UIApplication *app = UIApplication.sharedApplication;
         if (![(HUDMainApplication *)app aleEventsReady]) return 73;
         app.delegate = delegate;
@@ -88,28 +88,36 @@ int AleRunHUD(void) {
 UIImage *AleScreenImage(void) {
     // Render only on an explicit tap, after hiding our windows. Secure surfaces
     // may be black and are never bypassed. The image remains local for Vision.
-    typedef void (*Render)(mach_port_t, CFStringRef, IOSurfaceRef, uint32_t, uint32_t);
+    typedef CFTypeRef Surface;
+    typedef void (*Render)(mach_port_t, CFStringRef, Surface, uint32_t, uint32_t);
     Render render = (Render)dlsym(RTLD_DEFAULT, "CARenderServerRenderDisplay");
-    if (!render) return nil;
+    void *io = dlopen("/System/Library/Frameworks/IOSurface.framework/IOSurface", RTLD_NOW);
+    if (!io) io = dlopen("/System/Library/PrivateFrameworks/IOSurface.framework/IOSurface", RTLD_NOW);
+    if (!render || !io) return nil;
+    auto create = (Surface(*)(CFDictionaryRef))dlsym(io, "IOSurfaceCreate");
+    auto lock = (int(*)(Surface,uint32_t,uint32_t*))dlsym(io, "IOSurfaceLock");
+    auto unlock = (int(*)(Surface,uint32_t,uint32_t*))dlsym(io, "IOSurfaceUnlock");
+    auto address = (void*(*)(Surface))dlsym(io, "IOSurfaceGetBaseAddress");
+    if (!create || !lock || !unlock || !address) return nil;
     CGSize size = UIScreen.mainScreen.bounds.size;
     CGFloat scale = MIN(UIScreen.mainScreen.scale, 2.0);
     size_t width = (size_t)(size.width * scale), height = (size_t)(size.height * scale);
     if (!width || !height || width * height > 8000000) return nil;
-    size_t row = IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, width * 4);
-    NSDictionary *props = @{(id)kIOSurfaceWidth:@(width), (id)kIOSurfaceHeight:@(height),
-        (id)kIOSurfaceBytesPerElement:@4, (id)kIOSurfaceBytesPerRow:@(row),
-        (id)kIOSurfaceAllocSize:@(row * height), (id)kIOSurfacePixelFormat:@(0x42475241)};
-    IOSurfaceRef surface = IOSurfaceCreate((__bridge CFDictionaryRef)props);
+    size_t row = (width * 4 + 63) & ~((size_t)63);
+    NSDictionary *props = @{@"IOSurfaceWidth":@(width), @"IOSurfaceHeight":@(height),
+        @"IOSurfaceBytesPerElement":@4, @"IOSurfaceBytesPerRow":@(row),
+        @"IOSurfaceAllocSize":@(row * height), @"IOSurfacePixelFormat":@(0x42475241)};
+    Surface surface = create((__bridge CFDictionaryRef)props);
     if (!surface) return nil;
-    IOSurfaceLock(surface, 0, NULL);
+    if (lock(surface, 0, NULL) != 0) { CFRelease(surface); return nil; }
     render(MACH_PORT_NULL, CFSTR("LCD"), surface, 0, 0);
     CGColorSpaceRef color = CGColorSpaceCreateDeviceRGB();
-    CGContextRef ctx = CGBitmapContextCreate(IOSurfaceGetBaseAddress(surface), width, height, 8, row, color,
+    CGContextRef ctx = CGBitmapContextCreate(address(surface), width, height, 8, row, color,
         kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
     CGImageRef image = ctx ? CGBitmapContextCreateImage(ctx) : NULL;
     UIImage *result = image ? [UIImage imageWithCGImage:image scale:scale orientation:UIImageOrientationUp] : nil;
     if (image) CGImageRelease(image);
     if (ctx) CGContextRelease(ctx);
-    CGColorSpaceRelease(color); IOSurfaceUnlock(surface, 0, NULL); CFRelease(surface);
+    CGColorSpaceRelease(color); unlock(surface, 0, NULL); CFRelease(surface);
     return result;
 }

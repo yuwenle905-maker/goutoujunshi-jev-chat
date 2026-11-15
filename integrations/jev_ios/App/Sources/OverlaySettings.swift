@@ -95,7 +95,7 @@ private func personaGID(_ attr: UnsafePointer<posix_spawnattr_t?>, _ id: gid_t) 
                 return message
             }
             var code: Int32 = 0
-            if waitpid(pid, &code, WNOHANG) == pid { return "悬浮进程未完成启动（状态\(code)）；主App仍可使用" }
+            if waitpid(pid, &code, WNOHANG) == pid { return "悬浮进程未完成启动（\(OverlayProcessStatus.describe(code))）；主App仍可使用" }
             Thread.sleep(forTimeInterval: 0.1)
         }
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName("ai.ale.assistant.hud.stop" as CFString), nil, nil, true)

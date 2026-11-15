@@ -54,6 +54,12 @@ import Foundation
         try session.validate()
         let restoredSession = try JSONDecoder().decode(AleOverlaySession.self, from: JSONEncoder().encode(session))
         precondition(restoredSession.people[0].relationship.coaching?.persona == longPersona)
-        print("PASS: Ale coaching legacy decode, 18 presets, stage preservation, full long-persona roundtrip, object isolation")
+        precondition(OverlayProcessStatus.describe(11).contains("SIGSEGV"))
+        precondition(OverlayProcessStatus.describe(139).contains("SIGSEGV"))
+        precondition(OverlayProcessStatus.describe(73 << 8) == "退出码73")
+        precondition(OverlayProcessStatus.describe(0) == "退出码0")
+        precondition(OverlayProcessStatus.describe(6).contains("SIGABRT"))
+        precondition(OverlayProcessStatus.describe(19 << 8 | 0x7f).contains("暂停"))
+        print("PASS: Ale coaching legacy decode, 18 presets, stage preservation, full long-persona roundtrip, object isolation, 6 wait-status checks")
     }
 }

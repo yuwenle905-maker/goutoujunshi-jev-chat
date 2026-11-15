@@ -36,6 +36,7 @@ static UITouch *toStationarify = nil;
 
 static void __TSEventFetcherCallback(void *info)
 {
+ IOHIDEventRef deliveryHID = NULL;
  @try {
   static UIApplication *app = [UIApplication sharedApplication];
   // _touchesEvent can remain nil before the first hardware touch. Create our
@@ -74,10 +75,9 @@ static void __TSEventFetcherCallback(void *info)
   }
 
   if (myAry.count && [event respondsToSelector:@selector(_setHIDEvent:)]) {
-    IOHIDEventRef hid = kif_IOHIDEventWithTouches(myAry);
-    if (!hid) { _failure = @"无法创建当前触摸的HID数据"; return; }
-    [event _setHIDEvent:hid];
-    CFRelease(hid);
+    deliveryHID = kif_IOHIDEventWithTouches(myAry);
+    if (!deliveryHID) { _failure = @"无法创建当前触摸的HID数据"; return; }
+    [event _setHIDEvent:deliveryHID];
   }
 
   // All touches belong to our single HUD window. Deliver through UIWindow's
@@ -87,6 +87,7 @@ static void __TSEventFetcherCallback(void *info)
   [window sendEvent:event];
   _deliveryCount += 1;
  } @catch (NSException *exception) { _failure = @"UIKit内部事件派发异常"; }
+ @finally { if (deliveryHID) CFRelease(deliveryHID); }
 }
 
 @implementation TSEventFetcher

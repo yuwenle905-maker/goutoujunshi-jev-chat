@@ -19,6 +19,7 @@ static NSMutableArray *_livingTouchAry = nil;
 static CFRunLoopSourceRef _source = NULL;
 static NSString *_failure = @"";
 static __weak UIWindow *_deliveryWindow = nil;
+static NSUInteger _deliveryCount = 0;
 
 static UITouch *toRemove = nil;
 static UITouch *toStationarify = nil;
@@ -57,11 +58,13 @@ static void __TSEventFetcherCallback(void *info)
   UIWindow *window = _deliveryWindow;
   if (!window) { _failure = @"悬浮触摸目标窗口已释放"; return; }
   [window sendEvent:event];
+  _deliveryCount += 1;
  } @catch (NSException *exception) { _failure = @"UIKit内部事件派发异常"; }
 }
 
 @implementation TSEventFetcher
 + (NSString *)lastFailure { return _failure; }
++ (NSUInteger)deliveryCount { return _deliveryCount; }
 
 + (void)initialize
 {

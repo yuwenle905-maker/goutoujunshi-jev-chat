@@ -1,6 +1,14 @@
 #import "Bridge.h"
 #import "TSEventFetcher.h"
 
+static void WaitForDelivery(NSUInteger previous, CFAbsoluteTime deadline, void (^completion)(BOOL)) {
+    if ([TSEventFetcher deliveryCount] > previous) { completion(YES); return; }
+    if (CFAbsoluteTimeGetCurrent() >= deadline) { completion(NO); return; }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        WaitForDelivery(previous, deadline, completion);
+    });
+}
+
 // A real UIControl action delivered by the production UITouch/event source.
 // No sendActionsForControlEvents, direct callback invocation or host-app input.
 void AleProbeWindow(UIWindow *window, BOOL enabled, void (^completion)(BOOL, NSString *)) {
@@ -12,26 +20,36 @@ void AleProbeWindow(UIWindow *window, BOOL enabled, void (^completion)(BOOL, NSS
     button.accessibilityElementsHidden = YES;
     button.enabled = enabled;
     __block NSInteger count = 0;
-    __block NSString *failure = nil;
     [button addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { count += 1; }]
        forControlEvents:UIControlEventTouchUpInside];
     [root addSubview:button];
     [root layoutIfNeeded];
     CGPoint point = [button convertPoint:CGPointMake(8, 8) toView:window];
+    void (^finish)(NSString *) = ^(NSString *failure) {
+        [button removeFromSuperview];
+        NSString *sourceFailure = [TSEventFetcher lastFailure];
+        BOOL passed = !failure && !sourceFailure.length && count == 1;
+        completion(passed, failure ?: (sourceFailure.length ? sourceFailure : [NSString stringWithFormat:@"按钮实际动作次数：%ld", (long)count]));
+    };
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        NSUInteger before = [TSEventFetcher deliveryCount];
         @try {
             [TSEventFetcher receiveAXEventID:99 atGlobalCoordinate:point withTouchPhase:UITouchPhaseBegan inWindow:window onView:button];
-        } @catch (NSException *exception) { failure = @"自检触摸开始接口异常"; }
-    });
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 280 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-        @try {
-            [TSEventFetcher receiveAXEventID:99 atGlobalCoordinate:point withTouchPhase:UITouchPhaseEnded inWindow:window onView:button];
-        } @catch (NSException *exception) { failure = @"自检触摸结束接口异常"; }
-    });
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 650 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-        [button removeFromSuperview];
-        BOOL passed = !failure && count == 1;
-        NSString *sourceFailure = [TSEventFetcher lastFailure];
-        completion(passed, failure ?: (sourceFailure.length ? sourceFailure : [NSString stringWithFormat:@"按钮实际动作次数：%ld", (long)count]));
+        } @catch (NSException *exception) { finish(@"自检触摸开始接口异常"); return; }
+        WaitForDelivery(before, CFAbsoluteTimeGetCurrent() + 2, ^(BOOL delivered) {
+            if (!delivered) { finish(@"独立事件源未完成按下派发"); return; }
+            // Wait for actual delivery, rather than scheduling down/up at fixed
+            // wall times that can coalesce under a cold SwiftUI layout.
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 60 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+                NSUInteger beforeUp = [TSEventFetcher deliveryCount];
+                @try {
+                    [TSEventFetcher receiveAXEventID:99 atGlobalCoordinate:point withTouchPhase:UITouchPhaseEnded inWindow:window onView:button];
+                } @catch (NSException *exception) { finish(@"自检触摸结束接口异常"); return; }
+                WaitForDelivery(beforeUp, CFAbsoluteTimeGetCurrent() + 2, ^(BOOL ended) {
+                    if (!ended) { finish(@"独立事件源未完成抬起派发"); return; }
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 60 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ finish(nil); });
+                });
+            });
+        });
     });
 }

@@ -3,6 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 check_dir="$(mktemp -d /tmp/goutou-ios-check.XXXXXX)"
 trap 'rm -rf "$check_dir"' EXIT
+clang++ -std=c++17 Tests/OverlayInstallerChecks.cpp -o "$check_dir/overlay-installer-checks"
+"$check_dir/overlay-installer-checks"
 swiftc -module-cache-path "$check_dir/modules" -parse-as-library \
   Shared/*.swift Tests/CoreChecks.swift -o "$check_dir/core-checks"
 "$check_dir/core-checks"

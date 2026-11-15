@@ -10,6 +10,10 @@
 #import "TSEventFetcher.h"
 #import "HUDMainApplication.h"
 static __weak UIWindow *s_window;
+NSString *AleEventFailure(void) {
+    UIApplication *app = UIApplication.sharedApplication;
+    return [app isKindOfClass:HUDMainApplication.class] ? [(HUDMainApplication *)app aleEventStage] : @"UIApplication类型不符";
+}
 
 BOOL AleHostWindow(UIWindow *window) {
     id host = [[NSClassFromString(@"SBSAccessibilityWindowHostingController") alloc] init];
@@ -69,7 +73,6 @@ int AleRunHUD(void) {
         static id<UIApplicationDelegate> delegate;
         delegate = [[NSClassFromString(@"AleHUDDelegate") alloc] init];
         UIApplication *app = UIApplication.sharedApplication;
-        if (![(HUDMainApplication *)app aleEventsReady]) return 73;
         app.delegate = delegate;
         if (![app respondsToSelector:@selector(__completeAndRunAsPlugin)]) return 71;
         [app _accessibilityInit];
@@ -78,6 +81,7 @@ int AleRunHUD(void) {
         auto pushMode = (void(*)(CFStringRef))dlsym(graphics ?: RTLD_DEFAULT, "GSEventPushRunLoopMode");
         if (eventInitialize) eventInitialize(false);
         if (pushMode) pushMode(kCFRunLoopDefaultMode);
+        if (![(HUDMainApplication *)app prepareAleEvents]) return 73;
         @try { [app __completeAndRunAsPlugin]; }
         @catch (NSException *exception) { return 74; }
         CFRunLoopRun();

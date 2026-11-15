@@ -16,5 +16,6 @@ HUD可切换本次启动快照内对象，读取剪贴板文字/图片、主动�
 ## 来源和修改
 - Vendor来自Lessica/TrollSpeed，commit a609be260c8261ead36509c3bc4ded8479da9c40，MIT，保留版权及LICENSE。
 - 其中KIF触摸组件按文件原版权与Apache2.0，保留许可证。仅把全局输入事件转为本HUD内部UITouch，不向宿主App生成事件。
-- 为避免无scene启动崩溃：TSEventFetcher从+load改为延迟+initialize，初始占位UITouch不访问场景；KIF scene访问改为可空firstObject。HUDMainApplication沿用上游事件分发接口，但移除扫描UIKit机器指令的旧系统回退；接口不符时明确失败，不假称触摸已就绪。
+- 为避免无scene启动崩溃：TSEventFetcher从+load改为延迟+initialize，初始占位UITouch不访问场景；KIF scene访问改为可空firstObject。
+- 1.1.0省略隐藏事件循环入口回退，真机反馈73。1.1.1恢复TrollSpeed适配：从本进程UIKit的已知ARM64调用形状解析入口，只作有界读取，校验同映像/入口指令及唯一性；不修改或注入系统代码。分发初始化移到单例注册及底层准备后，失败显示具体阶段。Tests/OverlayInstallerChecks.cpp直接检查生产匹配器，非复制一份实现的镜像测试。
 - Host.mm、HUD.swift和主App管道启动器为本项目集成代码。启动失败、未完成托管或缺私有接口时显示失败，不修改系统服务或自动重启设备。

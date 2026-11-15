@@ -14,7 +14,11 @@ import Darwin
                 HUDState.report("悬浮权限不足，请用TrollStore安装完整包"); exit(77)
             }
             let code = AleRunHUD()
-            HUDState.report("悬浮接口不可用（\(code)），主App仍可使用")
+            if code == 73 {
+                HUDState.report("悬浮初始化失败（73）：\(AleEventFailure() ?? "未知阶段")；iOS \(UIDevice.current.systemVersion)")
+            } else {
+                HUDState.report("悬浮接口不可用（\(code)），主App仍可使用")
+            }
             exit(code)
         } catch { exit(65) } // Never print the bootstrap or a decoding context.
     }

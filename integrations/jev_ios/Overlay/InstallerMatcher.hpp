@@ -26,7 +26,7 @@ static inline bool AleInstallerStoresRunLoop(const uint32_t *words, size_t count
         if ((w & 0x7e000000) == 0x34000000 || // cbz/cbnz
             (w & 0xffc003e0) == 0xa98003e0 || // stp ..., [sp, #-imm]!
             (w & 0xffc003e0) == 0xa90003e0 || // stp ..., [sp, #imm]
-            (w & 0xfffffc1f) == 0xd503201f || // hints / BTI / PAC
+            (w & 0xfffff01f) == 0xd503201f || // hints / BTI / PAC
             (w & 0xffc003ff) == 0x910003fd || // add fp, sp, #imm
             (w & 0xffc003ff) == 0xd10003ff) continue; // sub sp, sp, #imm
         return false;

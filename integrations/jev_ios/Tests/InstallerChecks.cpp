@@ -19,6 +19,8 @@ int main() {
     CHECK(!AleInstallerStoresRunLoop(nullptr, 0, 2, 40));
     const uint32_t moved[] = {0xd503233f, 0xa9bf7bfd, 0xaa0003f3, 0xaa0103f4, 0xf9001674};
     CHECK(AleInstallerStoresRunLoop(moved, 5, 2, 40)); // PAC, stack, register moves
+    const uint32_t bti[] = {0xd503245f, 0xb4000100, 0xf9001401};
+    CHECK(AleInstallerStoresRunLoop(bti, 3, 2, 40));
     const uint32_t clobbered[] = {0x94000001, 0xf9001401};
     CHECK(!AleInstallerStoresRunLoop(clobbered, 2, 2, 40)); // call before store
     const uint32_t wrongbase[] = {0xf9001421}; // str x1,[x1,#40]

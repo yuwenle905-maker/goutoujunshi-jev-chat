@@ -16,7 +16,7 @@ done
 xcrun --sdk iphoneos swiftc -target arm64-apple-ios16.0 -sdk "$sdk" -swift-version 5 -O \
   -parse-as-library -module-name AleHUD -import-objc-header Overlay/Bridge.h \
   Shared/*.swift ImageRecognition/LocalOCR.swift Overlay/HUD.swift "${objects[@]}" \
-  -LOverlay/Vendor/libraries -lIOKit -lc++ -framework UIKit -framework SwiftUI \
+  -Xlinker "$PWD/Overlay/Vendor/libraries/IOKit.tbd" -lc++ -framework UIKit -framework SwiftUI \
   -framework Vision -framework QuartzCore -o "$output/AleHUD"
 chmod 755 "$output/AleHUD"
 mkdir -p "$output/OverlayLicenses"

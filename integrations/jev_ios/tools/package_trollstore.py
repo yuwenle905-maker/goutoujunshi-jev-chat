@@ -75,7 +75,7 @@ def main():
         assert helper.is_file(), "Missing independent overlay helper"
         assert subprocess.check_output(["lipo", "-archs", str(helper)], text=True).strip() == "arm64"
         hud_entitlements = {
-            "application-identifier": "GOUTOU00001." + identifier + ".hud",
+            "application-identifier": "GOUTOU00001." + identifier,
             "platform-application": True,
             "com.apple.private.security.no-container": True,
             "com.apple.private.security.no-sandbox": True,

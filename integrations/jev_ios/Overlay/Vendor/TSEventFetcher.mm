@@ -13,6 +13,15 @@
 #import "UITouch-KIFAdditions.h"
 #import "UIApplication+Private.h"
 
+@interface UIEvent (AleOwnTouchEvent)
+- (instancetype)_init;
+- (void)_setTimestamp:(NSTimeInterval)timestamp;
+- (void)_setHIDEvent:(IOHIDEventRef)event;
+@end
+@interface UITouch (AleHIDRefresh)
+- (void)kif_setHidEvent;
+@end
+
 static NSArray *_safeTouchAry = nil;
 static NSMutableArray *_touchAry = nil;
 static NSMutableArray *_livingTouchAry = nil;
@@ -20,6 +29,7 @@ static CFRunLoopSourceRef _source = NULL;
 static NSString *_failure = @"";
 static __weak UIWindow *_deliveryWindow = nil;
 static NSUInteger _deliveryCount = 0;
+static UIEvent *_ownedEvent = nil;
 
 static UITouch *toRemove = nil;
 static UITouch *toStationarify = nil;
@@ -28,16 +38,26 @@ static void __TSEventFetcherCallback(void *info)
 {
  @try {
   static UIApplication *app = [UIApplication sharedApplication];
-  if (![app respondsToSelector:@selector(_touchesEvent)]) { _failure = @"UIKit缺少触摸事件接口"; return; }
-  UIEvent *event = [app _touchesEvent];
+  // _touchesEvent can remain nil before the first hardware touch. Create our
+  // own UITouchesEvent instead of depending on UIApplication's cached event.
+  if (!_ownedEvent) {
+    Class type = NSClassFromString(@"UITouchesEvent");
+    if (type && [type isSubclassOfClass:UIEvent.class] && [type instancesRespondToSelector:@selector(_init)]) {
+      _ownedEvent = [[type alloc] _init];
+    }
+  }
+  UIEvent *event = _ownedEvent;
+  if (!event && [app respondsToSelector:@selector(_touchesEvent)]) event = [app _touchesEvent];
   if (!event) { _failure = @"UIKit未创建触摸事件对象"; return; }
   
   // to retain objects from being released
   [event _clearTouches];
+  if ([event respondsToSelector:@selector(_setTimestamp:)]) [event _setTimestamp:NSProcessInfo.processInfo.systemUptime];
 
   NSArray *myAry = _safeTouchAry;
   for (UITouch *aTouch in myAry)
   {
+    [aTouch kif_setHidEvent];
     switch (aTouch.phase) {
     case UITouchPhaseEnded:
     case UITouchPhaseCancelled:
@@ -51,6 +71,13 @@ static void __TSEventFetcherCallback(void *info)
     }
 
     [event _addTouch:aTouch forDelayedDelivery:NO];
+  }
+
+  if (myAry.count && [event respondsToSelector:@selector(_setHIDEvent:)]) {
+    IOHIDEventRef hid = kif_IOHIDEventWithTouches(myAry);
+    if (!hid) { _failure = @"无法创建当前触摸的HID数据"; return; }
+    [event _setHIDEvent:hid];
+    CFRelease(hid);
   }
 
   // All touches belong to our single HUD window. Deliver through UIWindow's

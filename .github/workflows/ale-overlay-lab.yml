@@ -1,0 +1,72 @@
+name: Ale Overlay Simulator Verification
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - overlay-lab/**
+      - .github/workflows/ale-overlay-lab.yml
+permissions:
+  contents: read
+jobs:
+  simulator:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate simulator lab project
+        working-directory: overlay-lab
+        run: |
+          command -v xcodegen || brew install xcodegen
+          xcodegen generate
+      - name: Boot iPhone and build tests
+        working-directory: overlay-lab
+        run: |
+          mkdir -p evidence
+          xcodebuild -version > evidence/xcode-version.txt
+          xcrun simctl list devices available -j > evidence/devices.json
+          device=$(python3 -c 'import json; a=json.load(open("evidence/devices.json")); print(next(d["udid"] for ds in a["devices"].values() for d in ds if "iPhone" in d["name"] and d.get("isAvailable")))')
+          echo "LAB_DEVICE=$device" >> "$GITHUB_ENV"
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool NO
+          xcrun simctl boot "$device" || true
+          xcrun simctl bootstatus "$device" -b
+          xcodebuild -project AleOverlayLab.xcodeproj -scheme AleOverlayLab -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$device" -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build-for-testing > evidence/build.log 2>&1 || { tail -100 evidence/build.log; exit 1; }
+          xcrun simctl install "$device" build/Build/Products/Debug-iphonesimulator/AlePasteReceiver.app
+      - name: Real XCTest touch OCR and cross-app paste
+        working-directory: overlay-lab
+        run: |
+          set -o pipefail
+          xcodebuild -project AleOverlayLab.xcodeproj -scheme AleOverlayLab -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$LAB_DEVICE" -derivedDataPath build \
+            -parallel-testing-enabled NO -resultBundlePath evidence/OverlayLab.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO test-without-building 2>&1 | tee evidence/tests.log
+      - name: Export actual screenshots and capabilities
+        if: always()
+        working-directory: overlay-lab
+        run: |
+          mkdir -p evidence/screenshots
+          if [ -d evidence/OverlayLab.xcresult ]; then
+            xcrun xcresulttool export attachments --path evidence/OverlayLab.xcresult --output-path evidence/screenshots || true
+          fi
+          if [ -n "${LAB_DEVICE:-}" ]; then
+            xcrun simctl io "$LAB_DEVICE" screenshot evidence/final-simulator-screen.png || true
+          fi
+          python3 - <<'PY'
+          import json,pathlib
+          pathlib.Path('evidence/scope.json').write_text(json.dumps({
+            'mode':'real_iOS_simulator_UI_tests',
+            'contents':'synthetic_chat_only', 'model_api_calls':0, 'messages_sent':0,
+            'ocr':'production_LocalOCR', 'touch':'XCTest_real_gestures',
+            'clipboard':'UIPasteboard_to_separate_app_UIPasteControl',
+            'screen_capture':'own_app_view_only',
+            'trollstore_global_window':'not_verified_by_simulator',
+            'wechat_douyin_xiaohongshu':'not_installed_or_tested'
+          },indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AleOverlaySimulatorEvidence
+          path: overlay-lab/evidence
+          retention-days: 14

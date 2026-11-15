@@ -1,0 +1,54 @@
+name: AleOverlayLab
+options:
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    TARGETED_DEVICE_FAMILY: '1'
+    CODE_SIGNING_ALLOWED: NO
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+targets:
+  AleOverlayLab:
+    type: application
+    platform: iOS
+    sources:
+      - LabApp.swift
+      - path: ../integrations/jev_ios/Shared
+      - path: ../integrations/jev_ios/ImageRecognition
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.ale.overlaylab
+        INFOPLIST_KEY_CFBundleDisplayName: 阿乐模拟器实验
+  AlePasteReceiver:
+    type: application
+    platform: iOS
+    sources: [Receiver.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.ale.pastereceiver
+        INFOPLIST_KEY_CFBundleDisplayName: 合成粘贴接收端
+  AleOverlayUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.ale.overlayuitests
+        TEST_TARGET_NAME: AleOverlayLab
+    dependencies:
+      - target: AleOverlayLab
+      - target: AlePasteReceiver
+        link: false
+        embed: false
+schemes:
+  AleOverlayLab:
+    build:
+      targets:
+        AleOverlayLab: all
+        AlePasteReceiver: all
+        AleOverlayUITests: [test]
+    test:
+      targets: [AleOverlayUITests]
+      gatherCoverageData: false

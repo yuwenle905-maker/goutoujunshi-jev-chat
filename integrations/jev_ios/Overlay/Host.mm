@@ -63,7 +63,7 @@ static void Event(void *, void *, IOHIDServiceRef, IOHIDEventRef event) {
     if (rep.isTouchDown) phase = UITouchPhaseBegan;
     else if (rep.isMove) phase = UITouchPhaseMoved;
     else if (rep.isCancel) phase = UITouchPhaseCancelled;
-    else if (rep.isLift || rep.isInRangeLift) phase = UITouchPhaseEnded;
+    else if (rep.isLift || rep.isInRange || rep.isInRangeLift) phase = UITouchPhaseEnded;
     else return;
     ++s_converted;
     // Copy primitive frame values before returning the hardware callback;
@@ -118,10 +118,14 @@ int AleRunHUD(void) {
         if (eventInitialize) eventInitialize(false);
         if (pushMode) pushMode(kCFRunLoopDefaultMode);
         if (![(HUDMainApplication *)app prepareAleEvents]) return 73;
+        // Do not depend on __completeAndRunAsPlugin returning: some UIKit
+        // versions run their loop inside it. The queued registration executes
+        // once that startup yields to the main runloop in either case.
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!StartHardwareInput(backboard)) exit(76);
+        });
         @try { [app __completeAndRunAsPlugin]; }
         @catch (NSException *exception) { return 74; }
-        // Register after UIKit startup, which may replace its BKS callback.
-        if (!StartHardwareInput(backboard)) return 76;
         CFRunLoopRun();
         return 0;
     }

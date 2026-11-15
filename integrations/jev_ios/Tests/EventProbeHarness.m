@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import "Bridge.h"
+#import "HUDMainApplication.h"
 
 @interface ProbeWindow : UIWindow
 @end
@@ -12,6 +13,9 @@
 @end
 @implementation ProbeApp
 - (BOOL)application:(UIApplication *)app didFinishLaunchingWithOptions:(NSDictionary *)options {
+    // Exercise the production UIKit-source gate and sink binding as well as AX
+    // delivery. A normal UIApplicationMain launch is not global HUD hosting.
+    BOOL nativeReady = [(HUDMainApplication *)app prepareAleEvents];
     self.window = [[ProbeWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     UIViewController *root = [UIViewController new];
     root.view.backgroundColor = UIColor.systemBackgroundColor;
@@ -22,8 +26,10 @@
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         AleProbeWindow(self.window, NO, ^(BOOL disabledPassed, NSString *disabledDetail) {
             AleProbeWindow(self.window, YES, ^(BOOL enabledPassed, NSString *enabledDetail) {
-                BOOL passed = !disabledPassed && enabledPassed;
+                BOOL passed = nativeReady && !disabledPassed && enabledPassed;
                 NSDictionary *result = @{@"passed":@(passed), @"disabled_target_rejected":@(!disabledPassed),
+                    @"native_sources_verified_before_sink":@(nativeReady),
+                    @"native_source_stage":[(HUDMainApplication *)app aleEventStage] ?: @"",
                     @"enabled_target_received_action":@(enabledPassed), @"negative_detail":disabledDetail ?: @"",
                     @"positive_detail":enabledDetail ?: @"", @"ios":UIDevice.currentDevice.systemVersion,
                     @"window_became_key":@(self.window.isKeyWindow), @"global_hosting_tested":@NO};
@@ -38,5 +44,5 @@
 }
 @end
 int main(int argc, char **argv) {
-    @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(ProbeApp.class)); }
+    @autoreleasepool { return UIApplicationMain(argc, argv, NSStringFromClass(HUDMainApplication.class), NSStringFromClass(ProbeApp.class)); }
 }

@@ -6,7 +6,7 @@ mkdir -p "$output/AleEventProbe.app"
 app="$output/AleEventProbe.app"
 sdk="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 objects=()
-for source in Tests/EventProbeHarness.m Overlay/EventProbe.mm Overlay/Vendor/TSEventFetcher.mm Overlay/Vendor/KIF/*.m; do
+for source in Tests/EventProbeHarness.m Overlay/EventProbe.mm Overlay/Vendor/HUDMainApplication.mm Overlay/Vendor/TSEventFetcher.mm Overlay/Vendor/KIF/*.m; do
   object="$output/$(basename "$source").o"
   xcrun --sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -isysroot "$sdk" \
     -fobjc-arc -fmodules -include Overlay/Prefix.h -IOverlay -IOverlay/Vendor \
@@ -40,7 +40,7 @@ for attempt in {1..40}; do
     python3 - "$output/result.json" <<'PY'
 import json,sys
 result=json.load(open(sys.argv[1])); print(json.dumps(result,ensure_ascii=False))
-assert result['passed'] and not result['window_became_key'], 'Production event source probe failed'
+assert result['passed'] and result['native_sources_verified_before_sink'] and not result['window_became_key'], 'Production native-source / AX probe failed'
 PY
     xcrun simctl terminate "$device" ai.ale.eventprobe
     echo 'PASS: actual production event source delivered a UIControl action and rejected the disabled control'

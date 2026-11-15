@@ -17,7 +17,7 @@ struct BrandPrimaryButtonStyle: ButtonStyle {
 struct ShibaBadge: View {
     var size: CGFloat = 52
     var body: some View {
-        Image("ShibaMascot").resizable().scaledToFit()
+        Image("AleMark").resizable().scaledToFit()
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: size * 0.24))
             .accessibilityHidden(true)

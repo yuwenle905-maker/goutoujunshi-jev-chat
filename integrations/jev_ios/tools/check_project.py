@@ -28,7 +28,7 @@ for name, folder in [("GoutouJunshi", "App"), ("GoutouKeyboard", "Keyboard"), ("
     sources = {p.relative_to(ROOT).as_posix() for p in (ROOT / folder / "Sources").glob("*.swift")}
     if name == "GoutouKeyboard":
         sources |= {p.relative_to(ROOT).as_posix() for p in (ROOT / "Keyboard/Input").glob("*.swift")}
-    common = {"Shared/Domain.swift", "Shared/Store.swift", "Shared/CaptureMailbox.swift"} if name == "GoutouCapture" else shared
+    common = {"Shared/AleCoaching.swift", "Shared/Domain.swift", "Shared/Store.swift", "Shared/CaptureMailbox.swift"} if name == "GoutouCapture" else shared
     assert phase_paths(target, "PBXSourcesBuildPhase") == common | recognition | sources, name + " source membership"
     assert "PrivacyInfo.xcprivacy" in phase_paths(target, "PBXResourcesBuildPhase")
     for path in phase_paths(target, "PBXSourcesBuildPhase") | phase_paths(target, "PBXResourcesBuildPhase"):

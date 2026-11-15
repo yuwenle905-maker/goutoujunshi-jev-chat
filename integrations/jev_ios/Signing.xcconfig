@@ -1,7 +1,7 @@
 // Configure these three values for your own Apple Developer team before installing.
 DEVELOPMENT_TEAM =
-GOUTOU_BUNDLE_ID = ai.goutoujunshi.chatios
-GOUTOU_APP_GROUP = group.ai.goutoujunshi.chatios
+GOUTOU_BUNDLE_ID = ai.ale.assistant
+GOUTOU_APP_GROUP = group.ai.ale.assistant
 
 // Both targets must use the SAME App Group and shared keychain group.
 GOUTOU_KEYCHAIN_GROUP = $(AppIdentifierPrefix)$(GOUTOU_BUNDLE_ID)

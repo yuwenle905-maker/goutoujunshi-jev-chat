@@ -139,7 +139,7 @@ final class RuleUpdateModel: ObservableObject {
 struct RuleSettingsSection: View {
     @ObservedObject private var rules = RuleUpdateModel.shared
     var body: some View {
-        Section("狗头军师 Skill 规则") {
+        Section("阿乐辅助 Skill 规则") {
             Link("规则来源：原作者 goutoujunshi", destination: URL(string: "https://github.com/shengjidaguai-china/goutoujunshi/blob/main/SKILL.md")!)
             Text("规则版本：\(rules.version.prefix(12)) · \(rules.fileCount) 份文件").font(.caption)
             if let date = rules.lastChecked { Text("上次成功检查：\(date.formatted(date: .abbreviated, time: .shortened))").font(.caption) }

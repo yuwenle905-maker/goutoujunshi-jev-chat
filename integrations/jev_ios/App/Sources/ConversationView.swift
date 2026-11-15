@@ -30,14 +30,14 @@ struct ConversationView: View {
                     HStack(spacing: 12) {
                         ShibaBadge()
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("你的随身狗头军师").font(.title3.bold())
-                            Text("把话说得像自己").font(.callout).foregroundStyle(Palette.secondary)
+                            Text("阿乐，帮我接句话").font(.title3.bold())
+                            Text("先懂这段关系，再用你的口吻表达").font(.callout).foregroundStyle(Palette.secondary)
                         }
                     }.padding(.bottom, 4)
                     Text("\(model.relationship.label) · \(model.relationship.stage) · \(model.relationship.goal)").foregroundStyle(Palette.secondary)
                     Text(model.keyboardStatus).font(.caption).foregroundStyle(Palette.secondary)
                     DisclosureGroup("在聊天 App 里怎么用") {
-                        Text("① 设置 → 通用 → 键盘 → 键盘 → 添加“狗头军师”。开启允许完全访问后可读取剪贴板和联网分析。\n② 点聊天输入框，用地球键切换到狗头军师，直接输入中文拼音、英文、数字或符号。\n③ 聊天截屏后，在这里选择截图；也可在照片中拷贝截图，点键盘顶部的图片按钮读取并识别。文字消息可复制后用军师的“读取剪贴板”。\n④ 核对原文、双方身份与对象，再确认分析；主 App 的结果可交给键盘。选候选填入草稿，由你自己发送；点“打字”继续修改。")
+                        Text("① 设置 → 通用 → 键盘 → 键盘 → 添加“阿乐辅助”。开启允许完全访问后可读取剪贴板和联网分析。\n② 点聊天输入框，用地球键切换到阿乐辅助，直接输入中文拼音、英文、数字或符号。\n③ 聊天截屏后，在这里选择截图；也可在照片中拷贝截图，点键盘顶部的图片按钮读取并识别。文字消息可复制后用军师的“读取剪贴板”。\n④ 核对原文、双方身份与对象，再确认分析；主 App 的结果可交给键盘。选候选填入草稿，由你自己发送；点“打字”继续修改。")
                             .font(.callout).padding(.top, 8)
                     }
                 }.card()
@@ -64,7 +64,7 @@ struct ConversationView: View {
                         Button("接收共享内容：\(item.source)") { stagedImport = item; importConfirmation = true }
                             .disabled(model.working)
                     }
-                    Text("系统分享中选择“导入狗头军师”后，回到这里接收。微信内部聊天卡片若未提供正文，无法直接读取。")
+                    Text("系统分享中选择“导入阿乐辅助”后，回到这里接收。微信内部聊天卡片若未提供正文，无法直接读取。")
                         .font(.caption).foregroundStyle(Palette.secondary)
                     Text("文件导入只读取聊天文字；ZIP 内的图片和视频不会加入记忆。每批最多 12000 字，较长记录请按日期分批。")
                         .font(.caption).foregroundStyle(Palette.secondary)
@@ -342,7 +342,7 @@ struct DetailView: View {
 extension View {
     func card() -> some View {
         padding(18).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.surface).clipShape(RoundedRectangle(cornerRadius: 22))
-            .overlay(RoundedRectangle(cornerRadius: 22).stroke(Palette.separator.opacity(0.45), lineWidth: 0.5))
+            .background(Palette.surface).clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.separator.opacity(0.45), lineWidth: 0.5))
     }
 }

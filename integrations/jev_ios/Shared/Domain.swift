@@ -71,9 +71,8 @@ struct AppConfig: Codable, Equatable {
 }
 
 struct Relationship: Codable, Equatable, Identifiable {
-    static let stages = ["未填写", "初识", "了解中", "暧昧", "约会中", "伴侣", "关系结束"]
-    static let goals = ["自然接话", "重新破冰", "拉近距离", "轻松调情", "暧昧升温", "推进关系",
-                        "主动邀约", "确认心意", "澄清关系", "修复冲突", "减少投入", "结束联系"]
+    static let stages = ["未填写", "初识", "刚认识", "了解中", "普通朋友", "好朋友", "我单向好感", "对方单向好感", "双向好感", "暧昧", "约会中", "关系待确认", "伴侣", "稳定伴侣", "异地伴侣", "磨合期", "冲突修复期", "关系冷淡", "前任", "复联中", "断联", "同事/同学", "关系结束"]
+    static let goals = ["自然接话", "重新破冰", "拉近距离", "朋友转暧昧", "表达好感", "轻松调情", "暧昧升温", "推进关系", "主动邀约", "从线上到见面", "确认心意", "暧昧转伴侣", "澄清关系", "增加恋爱感", "日常陪伴", "制造共同回忆", "增进了解", "表达想念", "回应对方好感", "保持朋友关系", "温和婉拒", "协商相处节奏", "修复冲突", "重建信任", "恢复联系", "恢复对等投入", "减少投入", "表达边界", "体面收线", "结束联系", "专业事务交流"]
     static let goalGuidance: [String: String] = [
         "自然接话": "先回应对方正在说的具体内容，自然延续话题，不强行升级关系。",
         "重新破冰": "在没有明确拒绝联系的前提下，用真实近况或共同话题重新开启一次轻量联系，不连发追问。",
@@ -97,8 +96,10 @@ struct Relationship: Codable, Equatable, Identifiable {
     var goal = "自然接话"
     var background = ""
     var notes = ""
+    var coaching: CoachingPreferences? = nil
 
     func validate() throws {
+        try coaching?.validate()
         guard !label.trimmed.isEmpty, label.count <= 40, Self.stages.contains(stage),
               Self.goals.contains(goal), background.count <= 200, notes.count <= 200 else {
             throw GoutouError.invalid("请核对对象、阶段和目标；背景与备注各最多 200 字")

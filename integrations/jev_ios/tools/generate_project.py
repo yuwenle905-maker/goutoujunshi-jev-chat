@@ -42,7 +42,7 @@ keyboard = sorted(p.relative_to(ROOT).as_posix() for folder in ("Keyboard/Source
                   for p in (ROOT / folder).glob("*.swift"))
 capture = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "Capture/Sources").glob("*.swift"))
 share = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "Share/Sources").glob("*.swift"))
-capture_shared = ["Shared/Domain.swift", "Shared/Store.swift", "Shared/CaptureMailbox.swift"]
+capture_shared = ["Shared/AleCoaching.swift", "Shared/Domain.swift", "Shared/Store.swift", "Shared/CaptureMailbox.swift"]
 keyboard_resources = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "Keyboard/Resources").glob("*") if p.is_file())
 resources = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "App/Resources").glob("*.csv"))
 app_id = identity("target:app")
@@ -120,7 +120,7 @@ for name, files, product, kind, identifier, info, entitlement in [
                           dstSubfolderSpec=13, files=embedded, name="Embed App Extensions", runOnlyForDeploymentPostprocessing=0))
     settings = {"PRODUCT_NAME": name, "PRODUCT_BUNDLE_IDENTIFIER": identifier,
                 "INFOPLIST_FILE": info, "CODE_SIGN_ENTITLEMENTS": entitlement,
-                "CURRENT_PROJECT_VERSION": "19", "MARKETING_VERSION": "0.3.3",
+                "CURRENT_PROJECT_VERSION": "1", "MARKETING_VERSION": "1.0.0",
                 "LD_RUNPATH_SEARCH_PATHS": ["$(inherited)", "@executable_path/Frameworks"]}
     if name != "GoutouJunshi":
         settings.update({"APPLICATION_EXTENSION_API_ONLY": "YES", "SKIP_INSTALL": "YES",
@@ -184,18 +184,18 @@ base_info = {
     "ITSAppUsesNonExemptEncryption": False,
 }
 for path, info in [
-    ("App/Info.plist", {**base_info, "CFBundleDisplayName": "狗头军师", "CFBundlePackageType": "APPL",
+    ("App/Info.plist", {**base_info, "CFBundleDisplayName": "阿乐辅助", "CFBundlePackageType": "APPL",
                         "LSRequiresIPhoneOS": True, "UILaunchScreen": {}, "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"]}),
-    ("Keyboard/Info.plist", {**base_info, "CFBundleDisplayName": "狗头军师", "CFBundlePackageType": "XPC!",
+    ("Keyboard/Info.plist", {**base_info, "CFBundleDisplayName": "阿乐辅助", "CFBundlePackageType": "XPC!",
         "NSExtension": {"NSExtensionPointIdentifier": "com.apple.keyboard-service",
                        "NSExtensionPrincipalClass": "$(PRODUCT_MODULE_NAME).KeyboardViewController",
                        "NSExtensionAttributes": {"IsASCIICapable": True, "PrefersRightToLeft": False,
                                                  "PrimaryLanguage": "zh-Hans", "RequestsOpenAccess": True}}}),
-    ("Capture/Info.plist", {**base_info, "CFBundleDisplayName": "狗头军师 · 本地截屏识图", "CFBundlePackageType": "XPC!",
+    ("Capture/Info.plist", {**base_info, "CFBundleDisplayName": "阿乐辅助 · 本地截屏识图", "CFBundlePackageType": "XPC!",
         "NSExtension": {"NSExtensionPointIdentifier": "com.apple.broadcast-services-upload",
                        "NSExtensionPrincipalClass": "$(PRODUCT_MODULE_NAME).SampleHandler",
                        "NSExtensionAttributes": {"RPBroadcastProcessMode": "RPBroadcastProcessModeSampleBuffer"}}}),
-    ("Share/Info.plist", {**base_info, "CFBundleDisplayName": "导入狗头军师", "CFBundlePackageType": "XPC!",
+    ("Share/Info.plist", {**base_info, "CFBundleDisplayName": "导入阿乐辅助", "CFBundlePackageType": "XPC!",
         "NSExtension": {"NSExtensionPointIdentifier": "com.apple.share-services",
                        "NSExtensionPrincipalClass": "$(PRODUCT_MODULE_NAME).ShareViewController",
                        "NSExtensionAttributes": {"NSExtensionActivationRule": {"NSExtensionActivationSupportsText": True,

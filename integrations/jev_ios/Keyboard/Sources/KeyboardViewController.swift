@@ -286,7 +286,7 @@ final class KeyboardViewController: UIInputViewController {
         badge.contentMode = .scaleAspectFit
         badge.layer.cornerRadius = 8; badge.clipsToBounds = true
         badge.isAccessibilityElement = true
-        badge.accessibilityLabel = "狗头军师"
+        badge.accessibilityLabel = "阿乐辅助"
         badge.widthAnchor.constraint(equalToConstant: 28).isActive = true
         badge.heightAnchor.constraint(equalToConstant: 28).isActive = true
         header.addArrangedSubview(badge)
@@ -334,7 +334,7 @@ final class KeyboardViewController: UIInputViewController {
         if mode == .gate {
             content.addArrangedSubview(KB.card([
                 KB.label("先启用键盘完全访问", size: 17, bold: true),
-                KB.label("设置 → 通用 → 键盘 → 键盘 → 狗头军师 → 允许完全访问。联网分析与共享配置需要这个开关。点顶部“打字”可继续本地输入。", size: 14)
+                KB.label("设置 → 通用 → 键盘 → 键盘 → 阿乐辅助 → 允许完全访问。联网分析与共享配置需要这个开关。点顶部“打字”可继续本地输入。", size: 14)
             ]))
             return
         }
@@ -454,7 +454,7 @@ final class KeyboardViewController: UIInputViewController {
         content.addArrangedSubview(KB.label("从截图读取聊天", size: 17, bold: true))
         content.addArrangedSubview(KB.card([
             KB.label("系统截屏 → 按配置识图", size: 16, bold: true),
-            KB.label("首次配置：① 系统“快捷指令”中新建“截图问军师”。② 添加系统“截屏”，再添加狗头军师“截图交给键盘（按配置）”，图片选上一步结果。③ 设置→辅助功能→触控→辅助触控，开启后将“轻点两下”绑定此快捷指令。", size: 14),
+            KB.label("首次配置：① 系统“快捷指令”中新建“截图问军师”。② 添加系统“截屏”，再添加阿乐辅助“截图交给键盘（按配置）”，图片选上一步结果。③ 设置→辅助功能→触控→辅助触控，开启后将“轻点两下”绑定此快捷指令。", size: 14),
             KB.label(config.ocr == .local ? "当前：Apple Vision 本地。截图在本机识别，文字直接回到键盘。"
                 : "当前：\(config.ocr.rawValue)。截图先回到键盘预览，点“发送截图并识别”后上传。", size: 12),
             KB.label("等待有效期 90 秒；收到的截图最多暂存 5 分钟。", size: 12)
@@ -650,7 +650,7 @@ final class KeyboardViewController: UIInputViewController {
         content.addArrangedSubview(KB.label("点一行可修改说话人，或忽略标题等非聊天文字。", size: 12))
         content.addArrangedSubview(KB.button("复制原文供核对", icon: "doc.on.doc") { [weak self] in
             guard let self = self else { return }
-            self.copyText(self.transcript, success: "已复制原文；请到狗头军师 App 核对区粘贴修正，不要发给聊天对象。")
+            self.copyText(self.transcript, success: "已复制原文；请到阿乐辅助 App 核对区粘贴修正，不要发给聊天对象。")
         })
         content.addArrangedSubview(KB.label("需修改错字：复制原文，到主 App 核对区编辑。不要把待核对原文发给聊天对象。", size: 12))
         content.addArrangedSubview(KB.row([
@@ -812,7 +812,7 @@ final class KeyboardViewController: UIInputViewController {
     @discardableResult
     private func copyText(_ text: String, success: String) -> Bool {
         guard hasFullAccess else {
-            notice = "复制需要键盘完全访问：设置→通用→键盘→狗头军师→允许完全访问。也可直接点“填入草稿”。"
+            notice = "复制需要键盘完全访问：设置→通用→键盘→阿乐辅助→允许完全访问。也可直接点“填入草稿”。"
             footer.text = notice; return false
         }
         let pasteboard = UIPasteboard.general

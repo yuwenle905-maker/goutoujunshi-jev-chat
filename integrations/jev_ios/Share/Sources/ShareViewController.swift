@@ -50,7 +50,7 @@ final class ShareViewController: UIViewController {
             } else { throw GoutouError.invalid("没有可导入的文字或文件") }
             try Task.checkCancellation()
             incoming = SharedChatImport(text: text, source: source)
-            preview.text = text; status.text = "只在本机接收并加密暂存，不上传。保存后请打开狗头军师 → 使用 → 接收共享内容，再选择对象并核对。"; save.isEnabled = true
+            preview.text = text; status.text = "只在本机接收并加密暂存，不上传。保存后请打开阿乐辅助 → 使用 → 接收共享内容，再选择对象并核对。"; save.isEnabled = true
         } catch { status.text = error.localizedDescription }
     }
     private func load(_ provider: NSItemProvider, type: String) async throws -> Data {

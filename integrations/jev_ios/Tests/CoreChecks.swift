@@ -73,7 +73,7 @@ struct CoreChecks {
         try check("Natural voice guide bundled", GoutouGuidance.common.contains("先像本人") && GoutouGuidance.common.contains("别演自然"))
         try check("Repair guide bundled", GoutouGuidance.scene["修复冲突"] != nil)
         let legacyGoals = ["自然接话", "主动邀约", "澄清关系", "修复冲突", "减少投入", "结束联系"]
-        try check("Existing goals and stages remain compatible", legacyGoals.allSatisfy(Relationship.goals.contains) && Relationship.stages.count == 7)
+        try check("Existing goals and stages remain compatible", legacyGoals.allSatisfy(Relationship.goals.contains) && ["未填写", "初识", "了解中", "暧昧", "约会中", "伴侣", "关系结束"].allSatisfy(Relationship.stages.contains))
         let goalPipeline = GoutouPipeline(api: ModelAPI(transport: MockTransport([]), config: AppConfig(), secrets: secrets))
         for goal in Relationship.goals {
             var relationship = Relationship(); relationship.goal = goal

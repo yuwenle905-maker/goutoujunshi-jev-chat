@@ -33,7 +33,7 @@ final class KeyboardPhotosView: UIView {
                 }
             })
         default:
-            stack.addArrangedSubview(KB.label("未获照片权限。请在系统设置的隐私与安全性→照片中允许狗头军师访问；也可在主App选择截图，或在照片里复制截图后回键盘读取。", size: 14))
+            stack.addArrangedSubview(KB.label("未获照片权限。请在系统设置的隐私与安全性→照片中允许阿乐辅助访问；也可在主App选择截图，或在照片里复制截图后回键盘读取。", size: 14))
         }
     }
     private func populate() {

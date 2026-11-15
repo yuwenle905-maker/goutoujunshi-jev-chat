@@ -224,6 +224,7 @@ struct RelationshipView: View {
                 Picker("本轮目标", selection: $draft.goal) { ForEach(Relationship.goals, id: \.self) { Text($0).tag($0) } }
                 Text(Relationship.guidance(for: draft.goal)).font(.caption).foregroundStyle(Palette.secondary)
                 TextField("最近发生了什么（最多 200 字）", text: $draft.background, axis: .vertical).lineLimit(3...6)
+                Text("只填近期事实，例如：这周异地、最近我主动更多、上次约见未定时间；可留空。不是给对方贴标签。前往下方统一设置策略与人设。") .font(.caption).foregroundStyle(Palette.secondary)
                 TextField("需要遵守的边界或备注（最多 200 字）", text: $draft.notes, axis: .vertical).lineLimit(2...4)
                 Toggle("同时保存为可切换的对象档案", isOn: $archive)
                 Button("保存当前对象与目标") {
@@ -240,6 +241,7 @@ struct RelationshipView: View {
             } footer: {
                 Text("只保存你主动填写的对象资料，不保存整份聊天。分析时会把当前对象的阶段、目标、背景与本轮原文交给所选模型。键盘无法自动识别聊天对象，换会话后请手动选择。")
             }
+            AleCoachingSection(relationship: $draft)
             Section("已保存的对象") {
                 NavigationLink("当前对象的长期记忆、摘要与导出") { MemoryView() }
                 Button("新建对象") { draft = Relationship(); archive = true }

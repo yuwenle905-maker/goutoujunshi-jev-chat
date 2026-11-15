@@ -8,7 +8,7 @@ struct ScreenshotShortcutGuide: View {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 10) {
                         Label("截屏后，文字直接回键盘", systemImage: "viewfinder").font(.title2.bold())
-                        Text("在聊天中切换到狗头军师键盘，点顶部“识图”→“收起键盘后截屏”。等键盘收起，再双击系统悬浮球运行截图快捷指令；完成后点聊天输入框回到键盘核对。")
+                        Text("在聊天中切换到阿乐辅助键盘，点顶部“识图”→“收起键盘后截屏”。等键盘收起，再双击系统悬浮球运行截图快捷指令；完成后点聊天输入框回到键盘核对。")
                         Text("识图方式沿用配置页：Apple Vision 在本机识别；DeepSeek 或 OpenRouter 先在键盘显示截图预览，点“发送截图并识别”后上传。分析前仍需核对双方发言。收起键盘截屏时读取完整可见聊天画面；小面板等待时裁掉底部键盘区域。")
                             .font(.callout).foregroundStyle(Palette.secondary)
                     }.card()
@@ -16,7 +16,7 @@ struct ScreenshotShortcutGuide: View {
                         Text("先创建快捷指令").font(.headline)
                         step("1", "打开“快捷指令”，新建“截图问军师”。")
                         step("2", "添加系统的“截屏”操作（也可能显示为“拍摄截屏”）。")
-                        step("3", "再添加狗头军师的“截图交给键盘（按配置）”，把“聊天截图”设为上一项的截屏结果。已有“截图交给键盘（本地）”动作会沿用新配置，无需重建。")
+                        step("3", "再添加阿乐辅助的“截图交给键盘（按配置）”，把“聊天截图”设为上一项的截屏结果。已有“截图交给键盘（本地）”动作会沿用新配置，无需重建。")
                         step("4", "保存。保持“截屏 → 截图交给键盘（按配置）”，使用时在键盘点“识图”→“收起键盘后截屏”，90 秒内触发截图；完成后点聊天输入框回来核对。")
                         Button("打开快捷指令") {
                             if let url = URL(string: "shortcuts://") { UIApplication.shared.open(url) }

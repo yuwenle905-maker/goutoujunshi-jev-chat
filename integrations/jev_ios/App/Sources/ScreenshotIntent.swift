@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 /// Shortcuts supplies an explicitly selected/captured image. This action never uploads it.
 struct RecognizeChatScreenshotIntent: AppIntent {
     static var title: LocalizedStringResource = "识别聊天截图（按配置）"
-    static var description = IntentDescription("接收截图并打开狗头军师，按识图配置处理。本地模式直接识别；DeepSeek 或 OpenRouter 先预览并确认上传。不会自动分析或发送消息。")
+    static var description = IntentDescription("接收截图并打开阿乐辅助，按识图配置处理。本地模式直接识别；DeepSeek 或 OpenRouter 先预览并确认上传。不会自动分析或发送消息。")
     static var openAppWhenRun: Bool = true
 
     @Parameter(title: "聊天截图", supportedTypeIdentifiers: ["public.image"], inputConnectionBehavior: .connectToPreviousIntentResult)
@@ -45,7 +45,7 @@ struct SendChatScreenshotToKeyboardIntent: AppIntent {
         let store = try GoutouStore()
         guard let request = store.captureMailbox.request(),
               request.relationship == store.relationship(), request.config == store.config() else {
-            throw GoutouError.invalid("请先切换到狗头军师键盘，点“识图”→“收起键盘后截屏”或“小面板等待”，再运行这个快捷指令。等待有效期为 90 秒。")
+            throw GoutouError.invalid("请先切换到阿乐辅助键盘，点“识图”→“收起键盘后截屏”或“小面板等待”，再运行这个快捷指令。等待有效期为 90 秒。")
         }
         do {
             let jpeg = try LocalOCR.boundedJPEG(screenshot.data, maxPixelSize: 2200,

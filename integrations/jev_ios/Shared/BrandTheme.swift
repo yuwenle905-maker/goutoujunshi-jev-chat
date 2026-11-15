@@ -12,17 +12,17 @@ enum BrandTheme {
         }
     }
 
-    static let background = adaptive(0xFFF8EF, 0x211A16)
-    static let surface = adaptive(0xFFFDFA, 0x30251F)
-    static let highlight = adaptive(0xFBE7D3, 0x493124)
-    static let accent = adaptive(0xA95524, 0xF0AD78)
-    static let primary = adaptive(0x70442D, 0xEDAD7B)
-    static let onPrimary = adaptive(0xFFF9F0, 0x2B1D15)
-    static let text = adaptive(0x483024, 0xF8EBDD)
-    static let secondaryText = adaptive(0x7B675A, 0xC7AF9E)
-    static let separator = adaptive(0xEAD9C8, 0x634A39)
-    static let chartRise = adaptive(0xB66025, 0xEDA068)
-    static let chartFall = adaptive(0x78635C, 0xB9A89E)
-    static let chartEvent = adaptive(0x9C6E22, 0xEAC078)
+    static let background = adaptive(0xF2F6F5, 0x101A18)
+    static let surface = adaptive(0xFFFFFF, 0x1B2925)
+    static let highlight = adaptive(0xE0EEE8, 0x2B4137)
+    static let accent = adaptive(0x19674F, 0x83DAB8)
+    static let primary = adaptive(0x19674F, 0x83DAB8)
+    static let onPrimary = adaptive(0xFFFFFF, 0x10251C)
+    static let text = adaptive(0x192D25, 0xEFF7F3)
+    static let secondaryText = adaptive(0x596B63, 0xAFBFB6)
+    static let separator = adaptive(0xD6E2DC, 0x40584C)
+    static let chartRise = adaptive(0x19674F, 0x83DAB8)
+    static let chartFall = adaptive(0x6B7771, 0xA7B6AE)
+    static let chartEvent = adaptive(0x99651B, 0xE6BA6B)
 }
 #endif

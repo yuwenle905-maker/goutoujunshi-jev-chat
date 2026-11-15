@@ -11,12 +11,12 @@ struct GoutouApp: App {
     var body: some Scene {
         WindowGroup {
             TabView(selection: $selectedTab) {
-                NavigationStack { ConversationView().navigationTitle("狗头军师") }
-                    .tabItem { Label("使用", systemImage: "bubble.left.and.bubble.right") }.tag(0)
+                NavigationStack { ConversationView().navigationTitle("阿乐辅助") }
+                    .tabItem { Label("工作台", systemImage: "bubble.left.and.bubble.right") }.tag(0)
                 NavigationStack { RelationshipView().navigationTitle("关系与目标") }
                     .tabItem { Label("关系", systemImage: "person.crop.circle") }.tag(1)
                 NavigationStack { ProviderView().navigationTitle("接口与偏好") }
-                    .tabItem { Label("配置", systemImage: "slider.horizontal.3") }.tag(2)
+                    .tabItem { Label("设置", systemImage: "slider.horizontal.3") }.tag(2)
                 NavigationStack { TrendView().navigationTitle("关系趋势 K 线") }
                     .tabItem { Label("K 线", systemImage: "chart.xyaxis.line") }.tag(3)
             }
@@ -24,7 +24,7 @@ struct GoutouApp: App {
             .foregroundStyle(Palette.ink)
             .toolbarBackground(Palette.cream, for: .tabBar)
             .environmentObject(model)
-            .onAppear { receiveScreenshot(); RuleUpdateModel.shared.checkIfDue() }
+            .onAppear { if ProcessInfo.processInfo.arguments.contains("--ale-preview") { model.loadDemo() }; receiveScreenshot(); RuleUpdateModel.shared.checkIfDue() }
             .onChange(of: screenshotInbox.pending) { _ in receiveScreenshot() }
             .onChange(of: scenePhase) { phase in
                 if phase == .active { model.reload(); RuleUpdateModel.shared.checkIfDue() }
@@ -150,7 +150,7 @@ final class AppModel: ObservableObject {
         do {
             try store.handoff(KeyboardHandoff(transcript: transcript, advice: advice, relationship: relationship,
                                              config: config, createdAt: Date()))
-            status = "已交给键盘 · 5 分钟内切回目标聊天，选择狗头军师键盘。取用后会删除临时内容。"
+            status = "已交给键盘 · 5 分钟内切回目标聊天，选择阿乐辅助键盘。取用后会删除临时内容。"
         } catch { status = error.localizedDescription }
     }
     func recognize(_ data: Data, provider: OCRProvider) {

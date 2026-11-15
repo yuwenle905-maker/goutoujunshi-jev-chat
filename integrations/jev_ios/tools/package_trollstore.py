@@ -82,7 +82,7 @@ def main():
             executable.chmod(executable.stat().st_mode | 0o111)
             manifest.append({"bundle_id": bundle_id, "minimum_ios": info["MinimumOSVersion"],
                              "architecture": "arm64", "entitlements": actual})
-        ipa = output / "GoutouJunshi-TrollStore.ipa"
+        ipa = output / "AleAssistant-TrollStore.ipa"
         # ditto preserves executable permissions and bundle structure on macOS.
         subprocess.run(["ditto", "-c", "-k", "--keepParent", str(payload), str(ipa)], check=True)
         with zipfile.ZipFile(ipa) as archive:

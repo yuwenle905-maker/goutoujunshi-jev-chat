@@ -29,13 +29,15 @@ jobs:
         working-directory: integrations/jev_ios
         shell: bash
     env:
-      GOUTOU_BUNDLE_ID: ai.goutoujunshi.chatios
-      GOUTOU_APP_GROUP: group.ai.goutoujunshi.chatios
-      GOUTOU_KEYCHAIN_GROUP: GOUTOU00001.ai.goutoujunshi.chatios
+      GOUTOU_BUNDLE_ID: ai.ale.assistant
+      GOUTOU_APP_GROUP: group.ai.ale.assistant
+      GOUTOU_KEYCHAIN_GROUP: GOUTOU00001.ai.ale.assistant
     steps:
       - uses: actions/checkout@v4
       - name: Check source and project
-        run: bash tools/check.sh
+        run: |
+          python3 tools/generate_project.py
+          bash tools/check.sh
       - name: Build ARM64 device app and extensions
         run: |
           set -euo pipefail
@@ -60,10 +62,19 @@ jobs:
       - name: Upload installable IPA and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: GoutouJunshi-TrollStore-iOS17-arm64
+          name: AleAssistant-TrollStore-arm64
           path: |
-            integrations/jev_ios/build-trollstore/output/GoutouJunshi-TrollStore.ipa
+            integrations/jev_ios/build-trollstore/output/AleAssistant-TrollStore.ipa
             integrations/jev_ios/build-trollstore/output/SHA256SUMS.txt
             integrations/jev_ios/build-trollstore/output/build-info.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Render actual iPhone simulator previews
+        run: bash tools/preview.sh
+      - name: Upload native previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: AleAssistant-Native-Previews
+          path: integrations/jev_ios/build-trollstore/preview/*.png
           if-no-files-found: error
           retention-days: 30

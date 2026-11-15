@@ -83,13 +83,13 @@ enum CandidateRanking {
 
 struct GoutouPipeline {
     let api: ModelAPI
-    private var guidance: String { api.ruleContext.isEmpty ? GoutouGuidance.common : api.ruleContext }
+    private var guidance: String { (api.ruleContext.isEmpty ? GoutouGuidance.common : api.ruleContext) + "\n" + AleVoice.rules }
 
     func input(_ transcript: Transcript, _ relationship: Relationship) throws -> String {
         try transcript.validate(); try relationship.validate(); try api.preflight()
         return try ModelJSON.json(["visible_transcript": transcript.text, "object": relationship.label,
             "stage": relationship.stage, "goal": relationship.goal, "goal_guide": Relationship.guidance(for: relationship.goal), "background": relationship.background,
-            "notes": relationship.notes, "my_confirmed_lines": transcript.myLines, "person_memory": api.memoryContext])
+            "notes": relationship.notes, "coaching": try ModelJSON.json(relationship.coaching.map { p in ["preset":p.preset,"persona":p.persona,"tone":p.tone,"progression":p.progression,"investment":p.investment,"nicknames":p.nicknames,"expression":p.expression,"avoid":p.avoid,"guide":p.guide] } ?? [:]), "my_confirmed_lines": transcript.myLines, "person_memory": api.memoryContext])
     }
     func deepseekDecision(_ payload: String) async throws -> Decision {
         let criteria = Strategy.allCases.map { "\($0.rawValue)：\($0.guide)" }.joined(separator: "\n")
@@ -165,7 +165,7 @@ struct GoutouPipeline {
         let decision = try await (api.config.judge == .deepseek ? deepseekDecision(payload) : jevDecision(payload))
         try Task.checkCancellation()
         progress("按策略生成分析与候选…")
-        let system = GoutouGuidance.analysis(config: api.config, strategy: decision.strategy, goal: relationship.goal, rules: api.ruleContext)
+        let system = GoutouGuidance.analysis(config: api.config, strategy: decision.strategy, goal: relationship.goal, rules: api.ruleContext) + "\n" + AleVoice.rules
         let evidence = try ModelJSON.json(["strategy": decision.strategy.rawValue, "facts": decision.evidence.facts,
                                           "unknowns": decision.evidence.unknowns, "boundary": decision.evidence.boundary])
         let raw = try await api.chat([ChatMessage(role: "system", content: system),

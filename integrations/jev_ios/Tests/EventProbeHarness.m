@@ -14,9 +14,11 @@
 @end
 @implementation ProbeApp
 - (BOOL)application:(UIApplication *)app didFinishLaunchingWithOptions:(NSDictionary *)options {
+    AleProbeProgress(@"application_did_finish_launching");
     // Exercise the production UIKit-source gate and sink binding as well as AX
     // delivery. A normal UIApplicationMain launch is not global HUD hosting.
     BOOL nativeReady = [(HUDMainApplication *)app prepareAleEvents];
+    AleProbeProgress(@"native_sources_checked");
     self.window = [[ProbeWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     UIViewController *root = [UIViewController new];
     root.view.backgroundColor = UIColor.systemBackgroundColor;
@@ -25,7 +27,9 @@
     label.numberOfLines = 0; label.text = @"Testing the production event source…";
     [root.view addSubview:label];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        AleProbeProgress(@"legacy_negative_button");
         AleProbeWindow(self.window, NO, ^(BOOL disabledPassed, NSString *disabledDetail) {
+            AleProbeProgress(@"legacy_positive_button");
             AleProbeWindow(self.window, YES, ^(BOOL enabledPassed, NSString *enabledDetail) {
               AleProbeTouchBurst(self.window, ^(BOOL burstPassed, NSDictionary *burst) {
                 BOOL passed = nativeReady && !disabledPassed && enabledPassed && burstPassed;

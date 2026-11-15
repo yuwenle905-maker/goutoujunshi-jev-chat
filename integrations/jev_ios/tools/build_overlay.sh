@@ -15,6 +15,7 @@ for source in Overlay/Host.mm Overlay/Vendor/*.mm Overlay/Vendor/KIF/*.m; do
 done
 xcrun --sdk iphoneos swiftc -target arm64-apple-ios16.0 -sdk "$sdk" -swift-version 5 -O \
   -parse-as-library -module-name AleHUD -import-objc-header Overlay/Bridge.h \
+  -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @executable_path/Frameworks \
   Shared/*.swift ImageRecognition/LocalOCR.swift Overlay/HUD.swift "${objects[@]}" \
   -Xlinker "$PWD/Overlay/Vendor/libraries/IOKit.tbd" -lc++ -framework UIKit -framework SwiftUI \
   -framework Vision -framework QuartzCore -o "$output/AleHUD"

@@ -10,6 +10,9 @@ import Darwin
             let boot = try JSONDecoder().decode(AleOverlaySession.self, from: data)
             try boot.validate()
             HUDState.bootstrap = boot
+            guard getuid() == 0, geteuid() == 0 else {
+                HUDState.report("悬浮权限不足，请用TrollStore安装完整包"); exit(77)
+            }
             let code = AleRunHUD()
             HUDState.report("悬浮接口不可用（\(code)），主App仍可使用")
             exit(code)

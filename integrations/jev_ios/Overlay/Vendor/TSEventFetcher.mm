@@ -17,14 +17,18 @@ static NSArray *_safeTouchAry = nil;
 static NSMutableArray *_touchAry = nil;
 static NSMutableArray *_livingTouchAry = nil;
 static CFRunLoopSourceRef _source = NULL;
+static NSString *_failure = @"";
 
 static UITouch *toRemove = nil;
 static UITouch *toStationarify = nil;
 
 static void __TSEventFetcherCallback(void *info)
 {
+ @try {
   static UIApplication *app = [UIApplication sharedApplication];
+  if (![app respondsToSelector:@selector(_touchesEvent)]) { _failure = @"UIKit缺少触摸事件接口"; return; }
   UIEvent *event = [app _touchesEvent];
+  if (!event) { _failure = @"UIKit未创建触摸事件对象"; return; }
   
   // to retain objects from being released
   [event _clearTouches];
@@ -48,9 +52,11 @@ static void __TSEventFetcherCallback(void *info)
   }
 
   [app sendEvent:event];
+ } @catch (NSException *exception) { _failure = @"UIKit内部事件派发异常"; }
 }
 
 @implementation TSEventFetcher
++ (NSString *)lastFailure { return _failure; }
 
 + (void)initialize
 {
@@ -136,6 +142,7 @@ static void __TSEventFetcherCallback(void *info)
   }
 
   CFRunLoopSourceSignal(_source);
+  CFRunLoopWakeUp(CFRunLoopGetMain());
   return deleted;
 }
 

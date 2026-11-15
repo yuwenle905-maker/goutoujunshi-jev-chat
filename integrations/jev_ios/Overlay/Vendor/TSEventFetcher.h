@@ -10,6 +10,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface TSEventFetcher : NSObject
++ (NSString *)lastFailure;
 + (NSInteger)receiveAXEventID:(NSInteger)pointId
            atGlobalCoordinate:(CGPoint)point
                withTouchPhase:(UITouchPhase)phase

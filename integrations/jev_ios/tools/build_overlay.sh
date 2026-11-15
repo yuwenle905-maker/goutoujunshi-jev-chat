@@ -7,7 +7,7 @@ trap 'rm -rf "$scratch"' EXIT
 sdk="$(xcrun --sdk iphoneos --show-sdk-path)"
 includes=(-IOverlay -IOverlay/Vendor -IOverlay/Vendor/headers -IOverlay/Vendor/KIF)
 objects=()
-for source in Overlay/Host.mm Overlay/Vendor/*.mm Overlay/Vendor/KIF/*.m; do
+for source in Overlay/*.mm Overlay/Vendor/*.mm Overlay/Vendor/KIF/*.m; do
   object="$scratch/$(basename "$source").o"
   xcrun --sdk iphoneos clang -target arm64-apple-ios16.0 -isysroot "$sdk" \
     -fobjc-arc -fmodules -include Overlay/Prefix.h "${includes[@]}" -c "$source" -o "$object"

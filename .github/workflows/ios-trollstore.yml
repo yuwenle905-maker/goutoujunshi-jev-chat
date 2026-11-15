@@ -15,6 +15,7 @@ on:
       - integrations/jev_ios/RuleResources/**
       - integrations/jev_ios/Overlay/**
       - integrations/jev_ios/tools/build_overlay.sh
+      - integrations/jev_ios/tools/check_event_probe.sh
       - integrations/jev_ios/tools/check.sh
       - integrations/jev_ios/tools/check_project.py
       - integrations/jev_ios/tools/generate_project.py
@@ -44,6 +45,15 @@ jobs:
         run: |
           python3 tools/generate_project.py
           bash tools/check.sh
+      - name: Verify production event delivery in an actual simulator app
+        run: bash tools/check_event_probe.sh
+      - name: Upload internal event delivery proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AleAssistant-Event-Probe
+          path: integrations/jev_ios/build-event-probe/result.*
+          if-no-files-found: ignore
       - name: Build ARM64 device app and extensions
         run: |
           set -euo pipefail

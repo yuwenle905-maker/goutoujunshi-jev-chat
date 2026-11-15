@@ -262,7 +262,17 @@ private final class HUDController: UIViewController {
             let delegate = Unmanaged<HUDDelegate>.fromOpaque(observer).takeUnretainedValue()
             DispatchQueue.main.async { delegate.hideForLock() }
         }, "com.apple.springboard.lockstate" as CFString, nil, .deliverImmediately)
-        HUDState.report("悬浮进程已托管，请回聊天App验证显示、拖动与复制；这不是全局触摸已验收的结论。")
+        controller.bubble.isHidden = true
+        AleProbeWindow(window, true) { passed, detail in
+            Task { @MainActor in
+                guard passed else {
+                    HUDState.report("悬浮内部触摸自检失败（75）：\(detail ?? "未收到按钮动作")；iOS \(UIDevice.current.systemVersion)")
+                    exit(75)
+                }
+                controller.bubble.isHidden = false
+                HUDState.report("悬浮已托管，内部按钮触摸自检通过。请回聊天App确认悬浮球显示、拖动及复制。")
+            }
+        }
         return true
     }
     private func hideForLock() {

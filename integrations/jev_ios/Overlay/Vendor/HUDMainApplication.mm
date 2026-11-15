@@ -1,41 +1,11 @@
 // Adapted from TrollSpeed, Copyright (c) 2023 Lessica, MIT (see LICENSE).
-// Ale: initialize after singleton registration; restore upstream ARM64 installer
-// resolution with bounded self reads, image validation and ambiguity rejection.
+// Ale: initialize after singleton registration. When UIKit hides its installer,
+// our AX events use TSEventFetcher's own CFRunLoopSource, verified by a live probe.
 #import <notify.h>
 #import <objc/runtime.h>
-#import <dlfcn.h>
-#import <mach/mach.h>
-#import "pac_helper.h"
 #import "UIEventFetcher.h"
 #import "UIEventDispatcher.h"
 #import "HUDMainApplication.h"
-#include "../InstallerMatcher.hpp"
-
-typedef void (*Installer)(id, SEL, CFRunLoopRef);
-
-static Installer ResolveInstaller(void) {
-#if defined(__arm64__)
-    IMP run = class_getMethodImplementation(UIApplication.class, NSSelectorFromString(@"_run"));
-    if (!run) return NULL;
-    uintptr_t address = (uintptr_t)make_sym_readable((void *)run);
-    uint32_t words[0x142] = {};
-    vm_size_t copied = 0;
-    if (vm_read_overwrite(mach_task_self(), address, sizeof(words), (vm_address_t)words, &copied) != KERN_SUCCESS || copied != sizeof(words)) return NULL;
-    Dl_info origin = {};
-    if (!dladdr((void *)address, &origin) || !origin.dli_fbase) return NULL;
-    uintptr_t target = AleFindInstaller(words, 0x142, address, [](uintptr_t target, void *context) -> bool {
-        Dl_info *origin = (Dl_info *)context;
-        Dl_info info = {};
-        if (!dladdr((void *)target, &info) || info.dli_fbase != origin->dli_fbase) return false;
-        uint32_t first = 0; vm_size_t copied = 0;
-        if (vm_read_overwrite(mach_task_self(), target, sizeof(first), (vm_address_t)&first, &copied) != KERN_SUCCESS || copied != sizeof(first)) return false;
-        return AleInstallerEntry(first);
-    }, &origin);
-    return target ? (Installer)make_sym_callable((void *)target) : NULL;
-#else
-    return NULL;
-#endif
-}
 
 @interface HUDMainApplication ()
 @property (nonatomic, readwrite) BOOL aleEventsReady;
@@ -63,11 +33,8 @@ static Installer ResolveInstaller(void) {
             self.aleEventStage = @"安装事件循环·选择器";
             [dispatcher _installEventRunLoopSources:CFRunLoopGetMain()];
         } else {
-            self.aleEventStage = @"解析iOS隐藏的事件循环入口";
-            Installer install = ResolveInstaller();
-            if (!install) { self.aleEventStage = @"未找到唯一且通过校验的事件循环入口"; return NO; }
-            self.aleEventStage = @"安装事件循环·UIKit内部入口";
-            install(dispatcher, @selector(_installEventRunLoopSources:), CFRunLoopGetMain());
+            // No guessing instruction addresses. TSEventFetcher installs its own
+            // source in common runloop modes and wakes the main loop explicitly.
         }
         self.aleEventStage = @"创建UIEventFetcher";
         UIEventFetcher *fetcher = [[NSClassFromString(@"UIEventFetcher") alloc] init];
@@ -80,7 +47,7 @@ static Installer ResolveInstaller(void) {
         self.aleEventStage = @"绑定UIApplication的Fetcher";
         [self setValue:fetcher forKey:@"eventFetcher"];
         self.aleEventsReady = YES;
-        self.aleEventStage = @"事件分发初始化完成";
+        self.aleEventStage = @"Fetcher已绑定，等待独立触摸事件源自检";
     } @catch (NSException *e) {
         self.aleEventStage = [self.aleEventStage stringByAppendingString:@"：接口调用异常"];
         self.aleEventsReady = NO;

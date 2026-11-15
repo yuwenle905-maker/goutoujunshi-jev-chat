@@ -15,6 +15,10 @@
 
 ## 验证与限制
 
-待macOS CI：16项生产匹配器检查、6项wait-status检查、原核心/记忆/OCR/长人设检查、独立HUD和四target设备编译、模拟器触摸对照、签名打包。本机Windows缺Apple SDK/plutil；工程已用原生成器生成，新增Shared文件纳入sources。
+最终源码f5eed33613ec6b6b9208c2e46dc9e677a83ec5d4，完整CI43735743516已success。17项生产匹配器检查、6项wait-status检查、原核心/记忆/OCR/长人设检查、独立HUD和四target设备编译、实际模拟器触摸对照、签名打包及主App原生预览均通过。本机Windows缺Apple SDK/plutil；工程用原生成器生成，新增Shared文件纳入sources，完整工程核验由macOS CI通过。
+
+实际事件证明14170178798：iOS26.4.1，native_sources_verified_before_sink=true；禁用按钮0动作、启用1动作，保持非key，global_hosting_tested=false。截图和JSON已经下载核对。
+
+1.1.3(6)产物14169904537，本地outputs/阿乐辅助-1.1.3-原生事件源修复测试版.ipa，3266653字节；SHA256 93de2df695ce44df0640c86399551623ebfea14865c1bbcae23bef58933042da。本地复核ZIP CRC、四bundle版本与标识、五个arm64设备Mach-O/最低iOS16/签名段/执行权限、依赖路径、许可证及hash均通过。
 
 模拟器内部事件测试不代表iOS17.0/TrollStore全局显示、硬件触摸、键盘、跨App截屏/复制成功。本次有真实崩溃栈依据，仍待最终真机验收，不提前宣称修好。无真实API调用、消息发送或私人聊天上传。

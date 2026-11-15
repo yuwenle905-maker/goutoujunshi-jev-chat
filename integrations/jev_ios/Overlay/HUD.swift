@@ -199,6 +199,8 @@ private final class PassThroughView: UIView {
     @objc func _shouldCreateContextAsSecure() -> Bool { true }
 }
 private final class HUDController: UIViewController {
+    var tapCount = 0
+    var dragCount = 0
     let model = HUDState()
     let bubble = UIButton(type: .system)
     var panel: UIHostingController<HUDPanel>!
@@ -222,13 +224,14 @@ private final class HUDController: UIViewController {
         let safe = view.bounds.inset(by:UIEdgeInsets(top:max(view.safeAreaInsets.top,48), left:10, bottom:max(view.safeAreaInsets.bottom,20), right:10))
         panel.view.frame = CGRect(x:safe.minX, y:safe.minY + 8, width:safe.width, height:min(safe.height - 16, 650))
     }
-    @objc func toggle() { panel.view.isHidden.toggle(); bubble.isHidden = !panel.view.isHidden }
+    @objc func toggle() { tapCount += 1; panel.view.isHidden.toggle(); bubble.isHidden = !panel.view.isHidden }
     func collapse() {
         panel.view.endEditing(true)
         if let window = view.window as? HUDWindow { window.editing = false; window.resignKey() }
         panel.view.isHidden = true; bubble.isHidden = false
     }
     @objc func drag(_ pan: UIPanGestureRecognizer) {
+        if pan.state == .began { dragCount += 1 }
         let d = pan.translation(in:view); pan.setTranslation(.zero, in:view)
         bubble.center = CGPoint(x:min(max(30,bubble.center.x+d.x),view.bounds.width-30), y:min(max(65,bubble.center.y+d.y),view.bounds.height-50))
     }
@@ -248,6 +251,8 @@ private final class HUDController: UIViewController {
 @objc(AleHUDDelegate) final class HUDDelegate: NSObject, UIApplicationDelegate {
     var window: UIWindow?
     private var controller: HUDController?
+    private var inputTimer: Timer?
+    private var lastInputStatus = ""
     func application(_ application: UIApplication, didFinishLaunchingWithOptions options:[UIApplication.LaunchOptionsKey:Any]? = nil) -> Bool {
         let controller = HUDController(); self.controller = controller
         let window = HUDWindow(frame:UIScreen.main.bounds); self.window = window
@@ -270,10 +275,22 @@ private final class HUDController: UIViewController {
                     exit(75)
                 }
                 controller.bubble.isHidden = false
-                HUDState.report("悬浮已托管，内部按钮触摸自检通过。请回聊天App确认悬浮球显示、拖动及复制。")
+                self.reportInput()
+                let timer = Timer(timeInterval:1, repeats:true) { [weak self] _ in
+                    Task { @MainActor in self?.reportInput() }
+                }
+                self.inputTimer = timer
+                RunLoop.main.add(timer, forMode:.common)
             }
         }
         return true
+    }
+    private func reportInput() {
+        guard let controller = controller else { return }
+        let result = controller.tapCount + controller.dragCount > 0 ? "已收到悬浮球操作" : "悬浮已显示，真实手指操作待确认"
+        let value = "\(result)；\(AleHardwareInputStatus() ?? "触摸入口未知")；点击\(controller.tapCount)，拖动\(controller.dragCount)"
+        guard value != lastInputStatus else { return }
+        lastInputStatus = value; HUDState.report(value)
     }
     private func hideForLock() {
         // Query rather than toggle: duplicate notifications cannot expose data.

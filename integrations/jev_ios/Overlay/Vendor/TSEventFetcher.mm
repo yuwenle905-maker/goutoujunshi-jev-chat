@@ -30,12 +30,15 @@ static NSString *_failure = @"";
 static __weak UIWindow *_deliveryWindow = nil;
 static NSUInteger _deliveryCount = 0;
 static UIEvent *_ownedEvent = nil;
+static BOOL _pending = NO;
 
 static UITouch *toRemove = nil;
 static UITouch *toStationarify = nil;
 
 static void __TSEventFetcherCallback(void *info)
 {
+ if (!_pending) return;
+ _pending = NO;
  IOHIDEventRef deliveryHID = NULL;
  @try {
   static UIApplication *app = [UIApplication sharedApplication];
@@ -80,11 +83,11 @@ static void __TSEventFetcherCallback(void *info)
     [event _setHIDEvent:deliveryHID];
   }
 
-  // All touches belong to our single HUD window. Deliver through UIWindow's
-  // public dispatcher, without UIApplication's hidden event-loop installer.
+  // Native sources are now initialized before plugin startup. UIApplication
+  // dispatch also drives the gesture environment needed by UIPan/SwiftUI.
   UIWindow *window = _deliveryWindow;
   if (!window) { _failure = @"悬浮触摸目标窗口已释放"; return; }
-  [window sendEvent:event];
+  [app sendEvent:event];
   _deliveryCount += 1;
  } @catch (NSException *exception) { _failure = @"UIKit内部事件派发异常"; }
  @finally { if (deliveryHID) CFRelease(deliveryHID); }
@@ -93,6 +96,10 @@ static void __TSEventFetcherCallback(void *info)
 @implementation TSEventFetcher
 + (NSString *)lastFailure { return _failure; }
 + (NSUInteger)deliveryCount { return _deliveryCount; }
++ (void)flushPendingEvents {
+    NSAssert(NSThread.isMainThread, @"Touch delivery must run on the main thread");
+    __TSEventFetcherCallback(NULL);
+}
 
 + (void)initialize
 {
@@ -179,6 +186,7 @@ static void __TSEventFetcherCallback(void *info)
     CFBridgingRelease(delayRelease);
   }
 
+  _pending = YES;
   CFRunLoopSourceSignal(_source);
   CFRunLoopWakeUp(CFRunLoopGetMain());
   return deleted;

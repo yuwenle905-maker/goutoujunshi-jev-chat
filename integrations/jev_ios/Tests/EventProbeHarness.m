@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import "Bridge.h"
 #import "HUDMainApplication.h"
+#import "TouchBurstProbe.h"
 
 @interface ProbeWindow : UIWindow
 @end
@@ -26,8 +27,10 @@
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         AleProbeWindow(self.window, NO, ^(BOOL disabledPassed, NSString *disabledDetail) {
             AleProbeWindow(self.window, YES, ^(BOOL enabledPassed, NSString *enabledDetail) {
-                BOOL passed = nativeReady && !disabledPassed && enabledPassed;
+              AleProbeTouchBurst(self.window, ^(BOOL burstPassed, NSDictionary *burst) {
+                BOOL passed = nativeReady && !disabledPassed && enabledPassed && burstPassed;
                 NSDictionary *result = @{@"passed":@(passed), @"disabled_target_rejected":@(!disabledPassed),
+                    @"burst_routing":burst,
                     @"native_sources_verified_before_sink":@(nativeReady),
                     @"native_source_stage":[(HUDMainApplication *)app aleEventStage] ?: @"",
                     @"enabled_target_received_action":@(enabledPassed), @"negative_detail":disabledDetail ?: @"",
@@ -36,7 +39,8 @@
                 NSData *data = [NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingPrettyPrinted error:nil];
                 NSURL *documents = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
                 [data writeToURL:[documents URLByAppendingPathComponent:@"event-probe.json"] atomically:YES];
-                label.text = passed ? @"PASS\nDisabled button: 0 actions\nEnabled button: 1 action\nWindow remains non-key" : [@"FAIL\n" stringByAppendingString:enabledDetail ?: @""];
+                label.text = passed ? @"PASS\nNative source ready\nRapid taps: 3 actions\nReal UIPan moved view\nOutside touches rejected" : [NSString stringWithFormat:@"FAIL\n%@\n%@", enabledDetail, burst];
+              });
             });
         });
     });

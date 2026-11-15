@@ -13,7 +13,12 @@ private func personaGID(_ attr: UnsafePointer<posix_spawnattr_t?>, _ id: gid_t) 
     static let shared = OverlayCoordinator()
     @Published var status = "未启动跨App悬浮窗"
     @Published var busy = false
+    private var diagnosticsTask: Task<Void, Never>?
+    private var currentStatusURL: URL?
     func stop() {
+        diagnosticsTask?.cancel(); diagnosticsTask = nil
+        if let url = currentStatusURL { try? FileManager.default.removeItem(at:url) }
+        currentStatusURL = nil
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
             CFNotificationName("ai.ale.assistant.hud.stop" as CFString), nil, nil, true)
         status = "已请求关闭悬浮窗"
@@ -43,12 +48,29 @@ private func personaGID(_ attr: UnsafePointer<posix_spawnattr_t?>, _ id: gid_t) 
             try snapshot.validate()
             let data = try JSONEncoder().encode(snapshot)
             stop(); busy = true; status = "正在启动独立悬浮进程…"
+            currentStatusURL = statusURL
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Self.launch(helper: helper, payload: data, statusURL: statusURL)
-                Task { @MainActor in self.busy = false; self.status = result }
+                Task { @MainActor in
+                    guard self.currentStatusURL == statusURL else { return }
+                    self.busy = false; self.status = result; self.watchDiagnostics(statusURL)
+                }
             }
             #endif
         } catch { status = error.localizedDescription }
+    }
+    private func watchDiagnostics(_ url: URL) {
+        diagnosticsTask?.cancel()
+        diagnosticsTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(nanoseconds:1_000_000_000) } catch { return }
+                guard let self = self, self.currentStatusURL == url else { return }
+                if let data = try? Data(contentsOf:url),
+                   let item = try? JSONSerialization.jsonObject(with:data) as? [String:String], let message = item["message"] {
+                    self.status = message
+                }
+            }
+        }
     }
     nonisolated private static func launch(helper: String, payload: Data, statusURL: URL) -> String {
         Thread.sleep(forTimeInterval: 0.3)
@@ -89,7 +111,6 @@ private func personaGID(_ attr: UnsafePointer<posix_spawnattr_t?>, _ id: gid_t) 
         for _ in 0..<100 {
             if let data = try? Data(contentsOf: statusURL),
                let item = try? JSONSerialization.jsonObject(with: data) as? [String: String], let message = item["message"] {
-                try? FileManager.default.removeItem(at: statusURL)
                 // Reap this child asynchronously when the user closes its HUD.
                 DispatchQueue.global(qos: .utility).async { var result: Int32 = 0; _ = waitpid(pid, &result, 0) }
                 return message

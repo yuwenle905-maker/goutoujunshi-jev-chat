@@ -1,6 +1,6 @@
 import Foundation
 
-struct ProviderSecrets {
+struct ProviderSecrets: Codable {
     var deepseek = ""
     var openrouter = ""
     var jev = ""

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Package device builds for TrollStore, preserving sandbox and shared groups.
 
-No Apple account, provisioning profile, API key or private entitlement is needed.
-This validates packaging, not keyboard behavior on a physical device.
+The standalone HUD requires private TrollStore entitlements. Extensions retain
+their previous sandboxed groups. Packaging never implies physical validation.
 """
 import hashlib
 import json
@@ -71,9 +71,35 @@ def main():
             "GoutouKeyboard.appex", "GoutouCapture.appex", "GoutouShare.appex"
         }, "Both keyboard and capture extensions must be embedded"
         manifest = []
+        helper = app / "AleHUD"
+        assert helper.is_file(), "Missing independent overlay helper"
+        assert subprocess.check_output(["lipo", "-archs", str(helper)], text=True).strip() == "arm64"
+        hud_entitlements = {
+            "application-identifier": "GOUTOU00001." + identifier + ".hud",
+            "platform-application": True,
+            "com.apple.private.security.no-container": True,
+            "com.apple.private.security.no-sandbox": True,
+            "com.apple.QuartzCore.displayable-context": True,
+            "com.apple.QuartzCore.secure-mode": True,
+            "com.apple.backboard.client": True,
+            "com.apple.springboard.accessibility-window-hosting": True,
+            "com.apple.private.hid.client.event-monitor": True,
+            "com.apple.private.hid.client.event-filter": True,
+            "com.apple.private.hid.client.service-protected": True,
+            "com.apple.private.hid.manager.client": True,
+        }
+        hud_plist = root / "hud-entitlements.plist"
+        hud_plist.write_bytes(plistlib.dumps(hud_entitlements))
+        subprocess.run([ldid, "-S" + str(hud_plist), str(helper)], check=True)
+        assert plistlib.loads(subprocess.check_output([ldid, "-e", str(helper)])) == hud_entitlements
+        helper.chmod(0o755)
         for index, (bundle, bundle_id, capture) in enumerate(targets):
             info, executable = check_bundle(bundle, bundle_id, app_group, keychain_group)
             expected = entitlements_for(bundle_id, app_group, keychain_group, capture)
+            if bundle == app:
+                expected.update({"com.apple.private.persona-mgmt": True,
+                                 "com.apple.private.security.no-sandbox": True,
+                                 "platform-application": True})
             entitlement_file = root / f"entitlements-{index}.plist"
             entitlement_file.write_bytes(plistlib.dumps(expected))
             subprocess.run([ldid, "-S" + str(entitlement_file), str(executable)], check=True)
@@ -87,6 +113,7 @@ def main():
         subprocess.run(["ditto", "-c", "-k", "--keepParent", str(payload), str(ipa)], check=True)
         with zipfile.ZipFile(ipa) as archive:
             assert archive.testzip() is None, "IPA CRC validation failed"
+            assert (archive.getinfo(helper.relative_to(root).as_posix()).external_attr >> 16) & 0o111
             for bundle, _, _ in targets:
                 executable = bundle / read_info(bundle)["CFBundleExecutable"]
                 entry = archive.getinfo(executable.relative_to(root).as_posix())
@@ -96,7 +123,9 @@ def main():
         (output / "SHA256SUMS.txt").write_text(f"{digest}  {ipa.name}\n", encoding="utf-8")
         (output / "build-info.json").write_text(json.dumps({
             "commit": os.environ.get("GITHUB_SHA", "local"), "targets": manifest,
-            "installation": "TrollStore", "device_validation": "pending",
+            "installation": "TrollStore", "device_validation": "pending", "overlay": {
+                "executable": "AleHUD", "architecture": "arm64", "entitlements": hud_entitlements,
+                "global_touch_capture_and_clipboard": "pending_physical_iOS17_validation"},
         }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"Verified IPA: {ipa.name}; SHA256: {digest}")
 

@@ -38,6 +38,7 @@ struct ProviderView: View {
 
     var body: some View {
         Form {
+            OverlaySettingsSection()
             RuleSettingsSection()
             Section("策略判断与回复生成") {
                 Picker("策略判断", selection: $draft.judge) { ForEach(JudgeProvider.allCases, id: \.self) { Text($0.rawValue).tag($0) } }

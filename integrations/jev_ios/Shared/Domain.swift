@@ -122,8 +122,8 @@ struct Relationship: Codable, Equatable, Identifiable {
         try coaching?.validate()
         guard (sourceApp?.count ?? 0) <= 40 else { throw GoutouError.invalid("平台名称过长") }
         guard !label.trimmed.isEmpty, label.count <= 40, Self.stages.contains(stage),
-              Self.goals.contains(goal), background.count <= 200, notes.count <= 200 else {
-            throw GoutouError.invalid("请核对对象、阶段和目标；背景与备注各最多 200 字")
+              Self.goals.contains(goal) else {
+            throw GoutouError.invalid("请核对对象名称、阶段和目标")
         }
     }
 }

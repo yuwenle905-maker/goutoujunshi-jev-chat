@@ -13,6 +13,8 @@ on:
       - integrations/jev_ios/Share/**
       - integrations/jev_ios/ImageRecognition/**
       - integrations/jev_ios/RuleResources/**
+      - integrations/jev_ios/Overlay/**
+      - integrations/jev_ios/tools/build_overlay.sh
       - integrations/jev_ios/tools/check.sh
       - integrations/jev_ios/tools/check_project.py
       - integrations/jev_ios/tools/generate_project.py
@@ -51,6 +53,8 @@ jobs:
             GOUTOU_APP_GROUP="$GOUTOU_APP_GROUP" \
             GOUTOU_KEYCHAIN_GROUP="$GOUTOU_KEYCHAIN_GROUP" \
             build
+      - name: Build independent TrollStore overlay helper
+        run: bash tools/build_overlay.sh build-trollstore/Build/Products/Release-iphoneos/GoutouJunshi.app
       - name: Install entitlement signing tool
         run: |
           command -v ldid || brew install ldid

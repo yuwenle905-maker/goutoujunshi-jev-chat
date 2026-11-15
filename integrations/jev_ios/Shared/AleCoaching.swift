@@ -11,9 +11,8 @@ struct CoachingPreferences: Codable, Equatable {
     var avoid = ""
     var guide = ""
     func validate() throws {
-        guard [preset,persona,tone,progression,investment,nicknames,expression,avoid,guide].allSatisfy({ $0.count <= 1600 }) else {
-            throw GoutouError.invalid("每项人设或关系偏好最多1600字")
-        }
+        // User-authored preferences are stored and submitted in full. Provider
+        // context limits are reported by the request, never enforced by truncation.
     }
 }
 struct AlePreset: Identifiable {

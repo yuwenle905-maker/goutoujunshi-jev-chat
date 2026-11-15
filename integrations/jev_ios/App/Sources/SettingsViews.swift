@@ -229,9 +229,9 @@ struct RelationshipView: View {
                 Picker("关系阶段", selection: $draft.stage) { ForEach(Relationship.stages, id: \.self) { Text($0).tag($0) } }
                 Picker("本轮目标", selection: $draft.goal) { ForEach(Relationship.goals, id: \.self) { Text($0).tag($0) } }
                 Text(Relationship.guidance(for: draft.goal)).font(.caption).foregroundStyle(Palette.secondary)
-                TextField("最近发生了什么（最多 200 字）", text: $draft.background, axis: .vertical).lineLimit(3...6)
+                TextField("最近发生了什么（填写事实和背景）", text: $draft.background, axis: .vertical).lineLimit(3...6)
                 Text("只填近期事实，例如：这周异地、最近我主动更多、上次约见未定时间；可留空。不是给对方贴标签。前往下方统一设置策略与人设。") .font(.caption).foregroundStyle(Palette.secondary)
-                TextField("需要遵守的边界或备注（最多 200 字）", text: $draft.notes, axis: .vertical).lineLimit(2...4)
+                TextField("需要遵守的边界或备注", text: $draft.notes, axis: .vertical).lineLimit(2...4)
                 Toggle("同时保存为可切换的对象档案", isOn: $archive)
             } header: {
                 Text("当前对象")

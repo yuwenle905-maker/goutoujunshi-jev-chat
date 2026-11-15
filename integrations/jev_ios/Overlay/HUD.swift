@@ -70,7 +70,7 @@ import Darwin
         task = Task { @MainActor in
             do {
                 let api = ModelAPI(transport: transport, config: Self.bootstrap.config, secrets: Self.bootstrap.secrets,
-                    memoryContext: try memory.context(context.relationship.id), ruleContext: context.rules)
+                    memoryContext: try memoryContext(context.relationship.id), ruleContext: context.rules)
                 let result = try await GoutouPipeline(api: api).analyze(text, relationship: context.relationship)
                 try Task.checkCancellation(); guard marker == revision else { return }
                 advice = result; reply = result.candidates.first?.text ?? ""; original = reply
@@ -79,6 +79,10 @@ import Darwin
         }
     }
     func choose(_ candidate: Candidate) { reply = candidate.text; original = candidate.text }
+    private func memoryContext(_ id: String) throws -> String {
+        defer { mobileOwnership() }
+        return try memory.context(id)
+    }
     func copyReply() {
         guard !reply.trimmed.isEmpty else { status = "请先生成或填写回复。"; return }
         UIPasteboard.general.setItems([[UIPasteboard.typeAutomatic:reply]], options: [.localOnly:true])
@@ -98,10 +102,10 @@ import Darwin
     }
     func remember() {
         do {
+            defer { mobileOwnership() }
             guard confirmed else { throw GoutouError.invalid("请先核对对象和双方身份") }
             let id = selectedID
             guard try memory.load(id).enabled else { throw GoutouError.invalid("请先在主App为此对象开启长期记忆") }
-            defer { mobileOwnership() }
             let plan = try memory.preview(id, transcript: transcript, source: "悬浮窗·用户核对")
             guard plan.overlapping == 0 else { throw GoutouError.invalid("存在重叠聊天，请回主App预览合并，未重复写入") }
             let added = try memory.merge(id, plan: plan, skipOverlap: false)

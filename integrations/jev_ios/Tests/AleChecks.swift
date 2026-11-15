@@ -32,8 +32,10 @@ import Foundation
         try relationship.validate()
         let api = ModelAPI(transport: HTTPTransport(), config: AppConfig(), secrets: ProviderSecrets(deepseek: "offline-placeholder"))
         let payload = try GoutouPipeline(api: api).input(Transcript(text: "对方：今天好吗\n我：还不错", confirmed: true), relationship)
-        let submitted = try ModelJSON.object(payload)
-        let preferences = try ModelJSON.object(submitted["coaching"] as! String)
+        // Input JSON is deliberately larger than the model-response parser's
+        // defensive bound. Validate full request contents with JSONSerialization.
+        let submitted = try JSONSerialization.jsonObject(with: Data(payload.utf8)) as! [String: Any]
+        let preferences = try JSONSerialization.jsonObject(with: Data((submitted["coaching"] as! String).utf8)) as! [String: Any]
         precondition(preferences["persona"] as? String == longPersona)
         precondition(submitted["background"] as? String == longPersona)
         let session = AleOverlaySession(config: AppConfig(), people: [.init(relationship: relationship, rules: "offline")],

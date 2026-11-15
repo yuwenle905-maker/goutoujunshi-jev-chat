@@ -17,6 +17,7 @@ targets:
       - LabApp.swift
       - path: ../integrations/jev_ios/Shared
       - path: ../integrations/jev_ios/ImageRecognition
+      - path: ../integrations/jev_ios/App/Assets.xcassets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ai.ale.overlaylab

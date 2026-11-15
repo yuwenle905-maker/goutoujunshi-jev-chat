@@ -10,7 +10,7 @@ final class AleOverlayUITests: XCTestCase {
     override func tearDownWithError() throws { app.terminate() }
     func test01BubbleTapAndDrag() {
         let bubble = app.buttons["aleBubble"], before = bubble.frame
-        bubble.press(forDuration:0.2,thenDragTo:app.coordinate(withNormalizedOffset:CGVector(dx:0.2,dy:0.18)))
+        bubble.coordinate(withNormalizedOffset:CGVector(dx:0.5,dy:0.5)).press(forDuration:0.2,thenDragTo:app.coordinate(withNormalizedOffset:CGVector(dx:0.2,dy:0.18)))
         XCTAssertGreaterThan(abs(bubble.frame.midX-before.midX),60)
         bubble.tap(); XCTAssertTrue(app.buttons["captureFixture"].waitForExistence(timeout:3))
         bubble.tap(); XCTAssertFalse(app.buttons["captureFixture"].exists)

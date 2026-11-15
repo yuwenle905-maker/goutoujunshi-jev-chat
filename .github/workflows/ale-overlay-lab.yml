@@ -27,11 +27,11 @@ jobs:
           device=$(python3 -c 'import json; a=json.load(open("evidence/devices.json")); print(next(d["udid"] for ds in a["devices"].values() for d in ds if "iPhone" in d["name"] and d.get("isAvailable")))')
           echo "LAB_DEVICE=$device" >> "$GITHUB_ENV"
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool NO
+          xcodebuild -project AleOverlayLab.xcodeproj -scheme AleOverlayLab -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build-for-testing > evidence/build.log 2>&1 || { grep -n 'error:' evidence/build.log || true; tail -25 evidence/build.log; exit 1; }
           xcrun simctl boot "$device" || true
           xcrun simctl bootstatus "$device" -b
-          xcodebuild -project AleOverlayLab.xcodeproj -scheme AleOverlayLab -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,id=$device" -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build-for-testing > evidence/build.log 2>&1 || { tail -100 evidence/build.log; exit 1; }
           xcrun simctl install "$device" build/Build/Products/Debug-iphonesimulator/AlePasteReceiver.app
       - name: Real XCTest touch OCR and cross-app paste
         working-directory: overlay-lab
@@ -49,11 +49,11 @@ jobs:
           if [ -d evidence/OverlayLab.xcresult ]; then
             xcrun xcresulttool export attachments --path evidence/OverlayLab.xcresult --output-path evidence/screenshots || true
           fi
-          if [ -n "${LAB_DEVICE:-}" ]; then
-            xcrun simctl io "$LAB_DEVICE" screenshot evidence/final-simulator-screen.png || true
-          fi
           python3 - <<'PY'
-          import json,pathlib
+          import json,pathlib,subprocess,os
+          if os.environ.get('LAB_DEVICE'):
+            try: subprocess.run(['xcrun','simctl','io',os.environ['LAB_DEVICE'],'screenshot','evidence/final-simulator-screen.png'],timeout=15,check=True)
+            except Exception: pass
           pathlib.Path('evidence/scope.json').write_text(json.dumps({
             'mode':'real_iOS_simulator_UI_tests',
             'contents':'synthetic_chat_only', 'model_api_calls':0, 'messages_sent':0,

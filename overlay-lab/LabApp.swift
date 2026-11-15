@@ -12,6 +12,7 @@ import UIKit
 // This deliberately uses a normal app-owned UIWindow on the Simulator.
 // It tests interaction/OCR/clipboard components, NOT TrollStore system hosting.
 final class OverlayWindow: UIWindow {
+    override var canBecomeKey: Bool { false }
     weak var bubble: UIView?
     weak var panel: UIView?
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -42,6 +43,7 @@ final class LabController: UIViewController {
         chat.font = .systemFont(ofSize:24); chat.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.14)
         chat.layer.cornerRadius = 16; chat.clipsToBounds = true; chat.accessibilityIdentifier = "fixtureChat"
         messageInput.font = .preferredFont(forTextStyle:.body); messageInput.accessibilityIdentifier = "chatInput"
+        messageInput.autocapitalizationType = .none; messageInput.autocorrectionType = .no
         messageInput.backgroundColor = .secondarySystemBackground
         probe.numberOfLines = 0; probe.font = .preferredFont(forTextStyle:.caption1); probe.accessibilityIdentifier = "probe"
         let stack = UIStackView(arrangedSubviews:[title,chat,messageInput,probe]); stack.axis = .vertical; stack.spacing = 22

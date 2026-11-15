@@ -14,6 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSUInteger)deliveryCount;
 + (void)useWindowRoute:(BOOL)enabled;
 + (void)resetFailure;
++ (NSString *)deliveryStage;
 + (NSInteger)receiveAXEventID:(NSInteger)pointId
            atGlobalCoordinate:(CGPoint)point
                withTouchPhase:(UITouchPhase)phase

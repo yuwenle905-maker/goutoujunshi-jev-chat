@@ -31,6 +31,8 @@ static __weak UIWindow *_deliveryWindow = nil;
 static NSUInteger _deliveryCount = 0;
 static UIEvent *_ownedEvent = nil;
 static BOOL _useWindowRoute = NO;
+static int _stageCode = 0;
+#define ALE_STAGE(n) __atomic_store_n(&_stageCode, n, __ATOMIC_RELAXED)
 
 static UITouch *toRemove = nil;
 static UITouch *toStationarify = nil;
@@ -39,13 +41,14 @@ static void __TSEventFetcherCallback(void *info)
 {
  IOHIDEventRef deliveryHID = NULL;
  @try {
+  ALE_STAGE(1);
   static UIApplication *app = [UIApplication sharedApplication];
   // _touchesEvent can remain nil before the first hardware touch. Create our
   // own UITouchesEvent instead of depending on UIApplication's cached event.
   if (!_ownedEvent) {
     Class type = NSClassFromString(@"UITouchesEvent");
     if (type && [type isSubclassOfClass:UIEvent.class] && [type instancesRespondToSelector:@selector(_init)]) {
-      _ownedEvent = [[type alloc] _init];
+      ALE_STAGE(2); _ownedEvent = [[type alloc] _init];
     }
   }
   UIEvent *event = _ownedEvent;
@@ -53,12 +56,13 @@ static void __TSEventFetcherCallback(void *info)
   if (!event) { _failure = @"UIKit未创建触摸事件对象"; return; }
   
   // to retain objects from being released
-  [event _clearTouches];
+  ALE_STAGE(3); [event _clearTouches];
   if ([event respondsToSelector:@selector(_setTimestamp:)]) [event _setTimestamp:NSProcessInfo.processInfo.systemUptime];
 
   NSArray *myAry = _safeTouchAry;
   for (UITouch *aTouch in myAry)
   {
+    ALE_STAGE(4);
     [aTouch kif_setHidEvent];
     switch (aTouch.phase) {
     case UITouchPhaseEnded:
@@ -76,6 +80,7 @@ static void __TSEventFetcherCallback(void *info)
   }
 
   if (myAry.count && [event respondsToSelector:@selector(_setHIDEvent:)]) {
+    ALE_STAGE(5);
     deliveryHID = kif_IOHIDEventWithTouches(myAry);
     if (!deliveryHID) { _failure = @"无法创建当前触摸的HID数据"; return; }
     [event _setHIDEvent:deliveryHID];
@@ -85,10 +90,12 @@ static void __TSEventFetcherCallback(void *info)
   // public dispatcher, without UIApplication's hidden event-loop installer.
   UIWindow *window = _deliveryWindow;
   if (!window) { _failure = @"悬浮触摸目标窗口已释放"; return; }
+  ALE_STAGE(6);
   if (_useWindowRoute) [window sendEvent:event];
   else [app sendEvent:event];
   _deliveryCount += 1;
- } @catch (NSException *exception) { _failure = @"UIKit内部事件派发异常"; }
+  ALE_STAGE(7);
+ } @catch (NSException *exception) { ALE_STAGE(8); _failure = @"UIKit内部事件派发异常"; }
  @finally { if (deliveryHID) CFRelease(deliveryHID); }
 }
 
@@ -97,6 +104,15 @@ static void __TSEventFetcherCallback(void *info)
 + (NSUInteger)deliveryCount { return _deliveryCount; }
 + (void)useWindowRoute:(BOOL)enabled { _useWindowRoute = enabled; }
 + (void)resetFailure { _failure = @""; }
++ (NSString *)deliveryStage {
+    switch (__atomic_load_n(&_stageCode, __ATOMIC_RELAXED)) {
+        case 1:return @"获取事件类型"; case 2:return @"初始化事件对象";
+        case 3:return @"清理事件容器"; case 4:return @"刷新触摸数据";
+        case 5:return @"刷新HID数据"; case 6:return @"进入事件派发";
+        case 7:return @"事件派发已返回"; case 8:return @"事件派发异常";
+        default:return @"尚未派发";
+    }
+}
 
 + (void)initialize
 {

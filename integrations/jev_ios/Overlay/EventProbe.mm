@@ -50,7 +50,8 @@ void AleProbeWindow(UIWindow *window, BOOL enabled, void (^completion)(BOOL, NSS
         [button removeFromSuperview];
         NSString *sourceFailure = [TSEventFetcher lastFailure];
         BOOL passed = !failure && !sourceFailure.length && count == 1;
-        completion(passed, failure ?: (sourceFailure.length ? sourceFailure : [NSString stringWithFormat:@"按钮实际动作次数：%ld", (long)count]));
+        NSString *detail = failure ?: (sourceFailure.length ? sourceFailure : [NSString stringWithFormat:@"按钮实际动作次数：%ld", (long)count]);
+        completion(passed, [detail stringByAppendingFormat:@"；%@", [TSEventFetcher deliveryStage]]);
     };
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
         NSUInteger before = [TSEventFetcher deliveryCount];

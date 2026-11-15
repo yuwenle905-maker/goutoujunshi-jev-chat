@@ -46,6 +46,7 @@ jobs:
           python3 tools/generate_project.py
           bash tools/check.sh
       - name: Verify production event delivery in an actual simulator app
+        timeout-minutes: 8
         run: bash tools/check_event_probe.sh
       - name: Upload internal event delivery proof
         if: always()

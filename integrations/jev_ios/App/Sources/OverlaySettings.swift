@@ -34,7 +34,8 @@ private func personaGID(_ attr: UnsafePointer<posix_spawnattr_t?>, _ id: gid_t) 
             let profiles = [current] + store.archived().filter { $0.id != current.id }
             let people = try profiles.map { p in AleOverlaySession.Person(relationship: p,
                 rules: try store.skillRules.current().context(goal: p.goal, background: p.background + "\n" + p.notes, transcript: "")) }
-            _ = try store.memoryStore().load(current.id) // Create mobile-owned archive directory before root helper.
+            // Precreate all snapshot profiles' mobile-owned lock files before root startup.
+            for profile in profiles { _ = try store.memoryStore().load(profile.id) }
             let statusURL = container.appendingPathComponent("AleHUDStatus-" + UUID().uuidString + ".json")
             let snapshot = AleOverlaySession(config: store.config(), people: people, selectedID: current.id,
                 secrets: try CredentialVault.load(), memoryKey: try MemoryEncryptionKey.load().withUnsafeBytes { Data($0) },

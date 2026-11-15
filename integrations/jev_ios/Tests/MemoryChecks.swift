@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import Darwin
 
 @main
 struct MemoryChecks {
@@ -53,6 +54,20 @@ struct MemoryChecks {
         try memory.enable("alice", enabled: false)
         try rejects("Disabled memory rejects new style samples") { try memory.saveStyle("alice",original:"old",approved:"new") }
         try check("Paused memory is not sent to models", try memory.context("alice").isEmpty)
+        let ownedContainer = directory.appendingPathComponent("hud-owned")
+        let owned = ChatMemoryStore(container: ownedContainer, key: key, fileOwner: (getuid(), getgid()))
+        try owned.enable("hud-person", enabled: true)
+        let ownedPlan = try owned.preview("hud-person", transcript: "对方：今天开心\n我：我也是", source: "synthetic")
+        _ = try owned.merge("hud-person", plan: ownedPlan, skipOverlap: false)
+        let appReader = ChatMemoryStore(container: ownedContainer, key: key)
+        try check("HUD atomic archive is readable through normal app writer", try appReader.load("hud-person").messages.count == 2)
+        let ownedFiles = try FileManager.default.contentsOfDirectory(at: ownedContainer.appendingPathComponent("PersonMemory"), includingPropertiesForKeys: nil)
+        try check("HUD transaction leaves no temporary archive", !ownedFiles.contains { $0.lastPathComponent.hasPrefix(".write-") })
+        for file in ownedFiles {
+            let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+            try check("Archive and lock preserve requested mobile owner", (attributes[.ownerAccountID] as? NSNumber)?.uint32Value == getuid())
+            try check("Archive and lock remain owner-only", (attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600)
+        }
         let csv = "sender,message,timestamp\nme,你好,2026-10-01\nother,有空吗,2026-10-02"
         try check("CSV preserves explicit sender and timestamp", try ChatImport.text(Data(csv.utf8), filename: "chat.csv").contains("对方：[2026-10-02] 有空吗"))
         try check("Plain text does not guess sender", try ChatImport.text(Data("某人说的话".utf8), filename: "chat.txt") == "说话人待确认：某人说的话")

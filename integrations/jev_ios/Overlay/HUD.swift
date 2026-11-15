@@ -39,7 +39,8 @@ import Darwin
     var person: AleOverlaySession.Person { Self.bootstrap.people.first { $0.relationship.id == selectedID }! }
     init() {
         selectedID = Self.bootstrap.selectedID
-        memory = ChatMemoryStore(container: URL(fileURLWithPath: Self.bootstrap.containerPath), key: SymmetricKey(data: Self.bootstrap.memoryKey))
+        memory = ChatMemoryStore(container: URL(fileURLWithPath: Self.bootstrap.containerPath), key: SymmetricKey(data: Self.bootstrap.memoryKey),
+            fileOwner: (Self.bootstrap.mobileUID, Self.bootstrap.mobileGID))
     }
     static func report(_ message: String) {
         guard let boot = bootstrap, let data = try? JSONSerialization.data(withJSONObject: ["message":message]) else { return }

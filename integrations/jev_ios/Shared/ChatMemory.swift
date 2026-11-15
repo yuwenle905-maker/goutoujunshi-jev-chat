@@ -49,9 +49,11 @@ struct MemoryMerge {
 final class ChatMemoryStore {
     private let folder: URL
     private let key: SymmetricKey
-    init(container: URL, key: SymmetricKey) {
+    private let fileOwner: (uid_t, gid_t)?
+    init(container: URL, key: SymmetricKey, fileOwner: (uid_t, gid_t)? = nil) {
         folder = container.appendingPathComponent("PersonMemory", isDirectory: true)
         self.key = key
+        self.fileOwner = fileOwner
     }
     private func location(_ id: String) -> URL {
         let name = SHA256.hash(data: Data(id.utf8)).map { String(format: "%02x", $0) }.joined()
@@ -64,6 +66,9 @@ final class ChatMemoryStore {
         let fd = open(url.appendingPathExtension("lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
         guard fd >= 0 else { throw GoutouError.invalid("无法锁定记忆文件") }
         defer { close(fd) }
+        if let owner = fileOwner, fchown(fd, owner.0, owner.1) != 0 {
+            throw GoutouError.invalid("无法设置共享记忆锁权限，旧数据未改动")
+        }
         guard flock(fd, LOCK_EX) == 0 else { throw GoutouError.invalid("记忆正在写入，请重试") }
         defer { flock(fd, LOCK_UN) }
         return try operation(url)
@@ -86,11 +91,35 @@ final class ChatMemoryStore {
         let data = try JSONEncoder().encode(archive)
         guard data.count <= 7_000_000 else { throw GoutouError.invalid("此对象记忆过大，请先导出整理") }
         guard let sealed = try AES.GCM.seal(data, using: key).combined else { throw GoutouError.invalid("记忆加密失败") }
-        #if os(iOS)
-        try sealed.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        #else
-        try sealed.write(to: url, options: .atomic)
-        #endif
+        if let owner = fileOwner {
+            // Publish only a complete, fsynced ciphertext file already owned by
+            // mobile. A crashing root HUD cannot leave an unreadable root-owned
+            // replacement over the user's archive.
+            let temp = folder.appendingPathComponent(".write-" + UUID().uuidString)
+            let fd = open(temp.path, O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW, S_IRUSR | S_IWUSR)
+            guard fd >= 0 else { throw GoutouError.invalid("无法创建记忆暂存，旧数据未改动") }
+            defer { close(fd); _ = unlink(temp.path) }
+            guard fchown(fd, owner.0, owner.1) == 0 else { throw GoutouError.invalid("无法设置记忆归属，旧数据未改动") }
+            #if os(iOS)
+            try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: temp.path)
+            #endif
+            try sealed.withUnsafeBytes { raw in
+                var offset = 0
+                while offset < raw.count {
+                    let n = Darwin.write(fd, raw.baseAddress!.advanced(by: offset), raw.count - offset)
+                    if n < 0 && errno == EINTR { continue }
+                    guard n > 0 else { throw GoutouError.invalid("记忆写入失败，旧数据未改动") }
+                    offset += n
+                }
+            }
+            guard fsync(fd) == 0, rename(temp.path, url.path) == 0 else { throw GoutouError.invalid("记忆提交失败，旧数据未改动") }
+        } else {
+            #if os(iOS)
+            try sealed.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            #else
+            try sealed.write(to: url, options: .atomic)
+            #endif
+        }
         var excluded = url
         var values = URLResourceValues(); values.isExcludedFromBackup = true
         try excluded.setResourceValues(values)

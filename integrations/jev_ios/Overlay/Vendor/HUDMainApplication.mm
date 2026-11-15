@@ -4,7 +4,7 @@
 #import <notify.h>
 #import <objc/runtime.h>
 #import <dlfcn.h>
-#import <mach/mach_vm.h>
+#import <mach/mach.h>
 #import "pac_helper.h"
 #import "UIEventFetcher.h"
 #import "UIEventDispatcher.h"
@@ -19,16 +19,16 @@ static Installer ResolveInstaller(void) {
     if (!run) return NULL;
     uintptr_t address = (uintptr_t)make_sym_readable((void *)run);
     uint32_t words[0x142] = {};
-    mach_vm_size_t copied = 0;
-    if (mach_vm_read_overwrite(mach_task_self(), address, sizeof(words), (mach_vm_address_t)words, &copied) != KERN_SUCCESS || copied != sizeof(words)) return NULL;
+    vm_size_t copied = 0;
+    if (vm_read_overwrite(mach_task_self(), address, sizeof(words), (vm_address_t)words, &copied) != KERN_SUCCESS || copied != sizeof(words)) return NULL;
     Dl_info origin = {};
     if (!dladdr((void *)address, &origin) || !origin.dli_fbase) return NULL;
     uintptr_t target = AleFindInstaller(words, 0x142, address, [](uintptr_t target, void *context) -> bool {
         Dl_info *origin = (Dl_info *)context;
         Dl_info info = {};
         if (!dladdr((void *)target, &info) || info.dli_fbase != origin->dli_fbase) return false;
-        uint32_t first = 0; mach_vm_size_t copied = 0;
-        if (mach_vm_read_overwrite(mach_task_self(), target, sizeof(first), (mach_vm_address_t)&first, &copied) != KERN_SUCCESS || copied != sizeof(first)) return false;
+        uint32_t first = 0; vm_size_t copied = 0;
+        if (vm_read_overwrite(mach_task_self(), target, sizeof(first), (vm_address_t)&first, &copied) != KERN_SUCCESS || copied != sizeof(first)) return false;
         return AleInstallerEntry(first);
     }, &origin);
     return target ? (Installer)make_sym_callable((void *)target) : NULL;
@@ -39,7 +39,7 @@ static Installer ResolveInstaller(void) {
 
 @interface HUDMainApplication ()
 @property (nonatomic, readwrite) BOOL aleEventsReady;
-@property (nonatomic, readwrite) NSString *aleEventStage;
+@property (nonatomic, copy, readwrite) NSString *aleEventStage;
 @end
 
 @implementation HUDMainApplication

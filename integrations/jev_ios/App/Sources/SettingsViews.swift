@@ -220,6 +220,11 @@ struct RelationshipView: View {
         Form {
             Section {
                 TextField("称呼或代号", text: $draft.label)
+                Picker("聊天平台", selection: Binding(get: { draft.sourceApp ?? "通用" }, set: { draft.sourceApp = $0 })) {
+                    ForEach(["通用", "微信", "抖音", "小红书", "QQ", "其他"], id: \.self) { Text($0).tag($0) }
+                }
+                Text("平台只用于标记这份对象档案和调整表达场景，不代表已获得自动读取或发送权限。第三方键盘不可用时可复制候选回复。")
+                    .font(.caption).foregroundStyle(Palette.secondary)
                 Picker("关系阶段", selection: $draft.stage) { ForEach(Relationship.stages, id: \.self) { Text($0).tag($0) } }
                 Picker("本轮目标", selection: $draft.goal) { ForEach(Relationship.goals, id: \.self) { Text($0).tag($0) } }
                 Text(Relationship.guidance(for: draft.goal)).font(.caption).foregroundStyle(Palette.secondary)

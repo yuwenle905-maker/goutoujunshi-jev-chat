@@ -268,6 +268,10 @@ struct ConversationView: View {
 }
 
 struct AdviceSummary: View {
+    @EnvironmentObject var model: AppModel
+    @State private var editing: Candidate?
+    @State private var editObjectID = ""
+    @State private var copied = ""
     let advice: Advice
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -283,7 +287,12 @@ struct AdviceSummary: View {
                     Text("#\(index + 1)" + (candidate.weight.map { " · \($0)%" } ?? " · 权重暂不可用"))
                         .font(.subheadline.bold()).foregroundStyle(Palette.ink)
                     Text(candidate.text).font(.title3).textSelection(.enabled)
-                    Button("复制候选") { UIPasteboard.general.string = candidate.text }.buttonStyle(.bordered)
+                    HStack {
+                        Button(copied == candidate.id ? "已复制" : "复制候选") {
+                            UIPasteboard.general.setItems([["public.utf8-plain-text":candidate.text]],options:[.localOnly:true]);copied = candidate.id
+                        }.buttonStyle(.bordered)
+                        Button("修改后复制") { editObjectID = model.relationship.id; editing = candidate }.buttonStyle(.bordered)
+                    }
                     DisclosureGroup("为什么这样回") {
                         Text("理由：\(candidate.reason)\n代价：\(candidate.tradeoff)").font(.callout).padding(.top, 6)
                     }
@@ -295,6 +304,9 @@ struct AdviceSummary: View {
                 advice.rankingStatus == "unavailable" ? "排序暂不可用，保留生成顺序，不补造权重。" : Advice.weightNote)
                 .font(.caption).foregroundStyle(Palette.secondary)
         }.card()
+            .sheet(item: $editing) { candidate in
+                NavigationStack { ReplyReviewView(original:candidate.text,objectID:editObjectID,text:candidate.text) }
+            }
     }
 }
 

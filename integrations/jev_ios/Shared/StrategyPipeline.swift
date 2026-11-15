@@ -87,7 +87,7 @@ struct GoutouPipeline {
 
     func input(_ transcript: Transcript, _ relationship: Relationship) throws -> String {
         try transcript.validate(); try relationship.validate(); try api.preflight()
-        return try ModelJSON.json(["visible_transcript": transcript.text, "object": relationship.label,
+        return try ModelJSON.json(["visible_transcript": transcript.text, "object": relationship.label, "source_app": relationship.sourceApp ?? "通用",
             "stage": relationship.stage, "goal": relationship.goal, "goal_guide": Relationship.guidance(for: relationship.goal), "background": relationship.background,
             "notes": relationship.notes, "coaching": try ModelJSON.json(relationship.coaching.map { p in ["preset":p.preset,"persona":p.persona,"tone":p.tone,"progression":p.progression,"investment":p.investment,"nicknames":p.nicknames,"expression":p.expression,"avoid":p.avoid,"guide":p.guide] } ?? [:]), "my_confirmed_lines": transcript.myLines, "person_memory": api.memoryContext])
     }

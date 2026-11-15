@@ -4,6 +4,8 @@ import Foundation
         let old = Data(#"{"id":"old","label":"旧对象","stage":"伴侣","goal":"自然接话","background":"","notes":""}"#.utf8)
         var relationship = try JSONDecoder().decode(Relationship.self, from: old)
         precondition(relationship.coaching == nil)
+        precondition(relationship.sourceApp == nil)
+        relationship.sourceApp = "小红书"
         precondition(AlePresets.all.count == 18)
         for card in AlePresets.all {
             let stage = relationship.stage

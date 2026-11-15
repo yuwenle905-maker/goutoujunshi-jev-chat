@@ -43,7 +43,15 @@ struct MemoryChecks {
         let wrong = ChatMemoryStore(container: directory, key: SymmetricKey(size: .bits256))
         try rejects("Wrong key must not reset memory") { _ = try wrong.load("alice") }
         try rejects("Unreviewed speakers cannot enter memory") { _ = try memory.preview("alice", transcript: "说话人待确认：你好", source: "test") }
+        for index in 0..<10 { try memory.saveStyle("alice",original:"你好吗？\(index)",approved:"刚忙完\(index)") }
+        try check("Edited replies retain latest eight examples", try memory.load("alice").styleExamples?.count == 8)
+        try check("Style examples are recalled for their own person", try memory.context("alice").contains("本人修改：刚忙完9"))
+        try check("Style examples do not cross people", try !memory.context("bob").contains("刚忙完9"))
+        try check("Local comparison notices removed question", try memory.load("alice").styleExamples?.last?.changes.contains("去掉了问句") == true)
+        try memory.clearStyles("alice")
+        try check("Clear styles preserves chat history", try memory.load("alice").styleExamples?.isEmpty == true && !memory.load("alice").messages.isEmpty)
         try memory.enable("alice", enabled: false)
+        try rejects("Disabled memory rejects new style samples") { try memory.saveStyle("alice",original:"old",approved:"new") }
         try check("Paused memory is not sent to models", try memory.context("alice").isEmpty)
         let csv = "sender,message,timestamp\nme,你好,2026-10-01\nother,有空吗,2026-10-02"
         try check("CSV preserves explicit sender and timestamp", try ChatImport.text(Data(csv.utf8), filename: "chat.csv").contains("对方：[2026-10-02] 有空吗"))

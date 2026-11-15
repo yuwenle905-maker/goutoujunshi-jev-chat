@@ -27,6 +27,15 @@ struct PersonMemory: Codable {
     var messages = [RememberedMessage]()
     var summary = ""
     var summaries = [SummaryVersion]()
+    var styleExamples: [ReplyStyleExample]? = nil
+}
+
+struct ReplyStyleExample: Codable, Identifiable {
+    var id = UUID()
+    var original: String
+    var approved: String
+    var changes: String
+    var createdAt = Date()
 }
 
 struct MemoryMerge {
@@ -150,6 +159,28 @@ final class ChatMemoryStore {
         }
     }
     func clear(_ id: String) throws { try locked(id) { try write(PersonMemory(), $0) } }
+    func saveStyle(_ id: String, original: String, approved: String) throws {
+        guard !original.trimmed.isEmpty, !approved.trimmed.isEmpty,
+              original.count <= 1000, approved.count <= 1000, original != approved else {
+            throw GoutouError.invalid("请修改为1–1000字的回复；原样候选不作为修改示例")
+        }
+        try locked(id) { url in
+            var archive = try read(url)
+            guard archive.enabled else { throw GoutouError.invalid("请先在当前对象的长期记忆中开启保存，再记录回复修改") }
+            var changes = [approved.count < original.count ? "表达更简短" : "调整了表达细节"]
+            if (original.contains("？") || original.contains("?")) && !(approved.contains("？") || approved.contains("?")) { changes.append("去掉了问句") }
+            if original.contains("。") && !approved.contains("。") { changes.append("减少了句号") }
+            var examples = archive.styleExamples ?? []
+            examples.append(ReplyStyleExample(original: original, approved: approved, changes: changes.joined(separator: "；")))
+            archive.styleExamples = Array(examples.suffix(8)); archive.revision += 1
+            try write(archive,url)
+        }
+    }
+    func clearStyles(_ id: String) throws {
+        try locked(id) { url in
+            var archive = try read(url); archive.styleExamples = []; archive.revision += 1; try write(archive,url)
+        }
+    }
     func context(_ id: String) throws -> String {
         let archive = try load(id)
         guard archive.enabled else { return "" }
@@ -158,7 +189,8 @@ final class ChatMemoryStore {
             guard size + message.line.count <= 6000 else { break }
             lines.append(message.line); size += message.line.count + 1
         }
-        return "历史资料仅供参考，以本轮原文及当前目标为准。导入时间不等于聊天发生时间，不把旧推测当事实。\n用户核对的长期摘要：\n" + archive.summary + "\n近期已核对聊天（较早到较晚）：\n" + lines.reversed().joined(separator: "\n")
+        let styles = (archive.styleExamples ?? []).map { "原候选：\($0.original)\n本人修改：\($0.approved)\n本地差异：\($0.changes)" }.joined(separator: "\n\n")
+        return "历史资料仅供参考，以本轮原文及当前目标为准。导入时间不等于聊天发生时间，不把旧推测当事实。\n用户核对的长期摘要：\n" + archive.summary + "\n近期已核对聊天（较早到较晚）：\n" + lines.reversed().joined(separator: "\n") + (styles.isEmpty ? "" : "\n本对象本人审核修改（只参考表达，不能照搬旧事实）：\n" + styles)
     }
 }
 

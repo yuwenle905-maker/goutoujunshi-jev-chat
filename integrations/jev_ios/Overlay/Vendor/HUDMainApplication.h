@@ -10,6 +10,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface HUDMainApplication : UIApplication
+@property (nonatomic, readonly) BOOL aleEventsReady;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -9,6 +9,8 @@
 #import "UIApplication+Private.h"
 #import "AXEventRepresentation.h"
 #import "TSEventFetcher.h"
+#import "HUDMainApplication.h"
+static __weak UIWindow *s_window;
 
 BOOL AleHostWindow(UIWindow *window) {
     id host = [[NSClassFromString(@"SBSAccessibilityWindowHostingController") alloc] init];
@@ -22,6 +24,7 @@ BOOL AleHostWindow(UIWindow *window) {
     call.target = host; call.selector = selector;
     [call setArgument:&context atIndex:2]; [call setArgument:&level atIndex:3];
     [call invoke];
+    s_window = window;
     objc_setAssociatedObject(window, @selector(AleHostWindow:), host, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return YES;
 }
@@ -36,7 +39,7 @@ static void Event(void *, void *, IOHIDServiceRef, IOHIDEventRef event) {
     if (!repClass) return;
     AXEventRepresentation *rep = [repClass representationWithHIDEvent:event hidStreamIdentifier:@"UIApplicationEvents"];
     dispatch_async(dispatch_get_main_queue(), ^{
-        UIWindow *window = UIApplication.sharedApplication.windows.firstObject;
+        UIWindow *window = s_window;
         if (!window || window.hidden) return;
         UIView *hit = [window hitTest:rep.location withEvent:nil];
         // Preserve move/end for an existing gesture even after leaving its view.
@@ -66,6 +69,7 @@ int AleRunHUD(void) {
         singleton(NSClassFromString(@"HUDMainApplication"));
         id<UIApplicationDelegate> delegate = [[NSClassFromString(@"AleHUDDelegate") alloc] init];
         UIApplication *app = UIApplication.sharedApplication;
+        if (![(HUDMainApplication *)app aleEventsReady]) return 73;
         app.delegate = delegate;
         if (![app respondsToSelector:@selector(__completeAndRunAsPlugin)]) return 71;
         [app _accessibilityInit];
@@ -74,7 +78,8 @@ int AleRunHUD(void) {
         auto pushMode = (void(*)(CFStringRef))dlsym(graphics ?: RTLD_DEFAULT, "GSEventPushRunLoopMode");
         if (eventInitialize) eventInitialize(false);
         if (pushMode) pushMode(kCFRunLoopDefaultMode);
-        [app __completeAndRunAsPlugin];
+        @try { [app __completeAndRunAsPlugin]; }
+        @catch (NSException *exception) { return 74; }
         CFRunLoopRun();
         return 0;
     }

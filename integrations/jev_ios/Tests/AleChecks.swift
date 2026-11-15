@@ -38,6 +38,16 @@ import Foundation
         let preferences = try JSONSerialization.jsonObject(with: Data((submitted["coaching"] as! String).utf8)) as! [String: Any]
         precondition(preferences["persona"] as? String == longPersona)
         precondition(submitted["background"] as? String == longPersona)
+        let suite = "ale-long-persona-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(suite)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = GoutouStore(defaults: defaults, container: folder)
+        try store.saveRelationship(relationship, archive: true)
+        let reopened = GoutouStore(defaults: defaults, container: folder)
+        precondition(reopened.relationship() == relationship)
+        precondition(reopened.archived().first?.coaching?.persona == longPersona)
         let session = AleOverlaySession(config: AppConfig(), people: [.init(relationship: relationship, rules: "offline")],
             selectedID: relationship.id, secrets: .init(), memoryKey: Data(repeating: 1, count: 32),
             containerPath: "/test", statusPath: "/test/status", mobileUID: 501, mobileGID: 501)

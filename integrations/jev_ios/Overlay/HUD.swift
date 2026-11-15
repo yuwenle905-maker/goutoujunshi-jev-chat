@@ -184,7 +184,8 @@ private final class PassThroughView: UIView {
 @objc(AleHUDWindow) final class HUDWindow: UIWindow {
     var editing = false
     override var canBecomeKey: Bool { editing }
-    @objc func _isSystemWindow() -> Bool { true }
+    @objc static func _isSystemWindow() -> Bool { true }
+    @objc func _ignoresHitTest() -> Bool { false }
     @objc func _isWindowServerHostingManaged() -> Bool { false }
     @objc func _isSecure() -> Bool { true }
     @objc func _shouldCreateContextAsSecure() -> Bool { true }
@@ -196,7 +197,7 @@ private final class HUDController: UIViewController {
     override func loadView() { view = PassThroughView(); view.backgroundColor = .clear }
     override func viewDidLoad() {
         super.viewDidLoad()
-        bubble.setTitle("阿乐", for:.normal); bubble.setTitleColor(.white, for:.normal)
+        bubble.setTitle("阿乐", for:.normal); bubble.setTitleColor(BrandTheme.onPrimary, for:.normal)
         bubble.titleLabel?.font = .boldSystemFont(ofSize:16); bubble.backgroundColor = BrandTheme.primary
         bubble.layer.cornerRadius = 26; bubble.frame = CGRect(x:16, y:180, width:52, height:52)
         bubble.accessibilityIdentifier = "aleGlobalBubble"; bubble.accessibilityLabel = "阿乐辅助悬浮球"

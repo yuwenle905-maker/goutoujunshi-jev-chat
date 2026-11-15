@@ -65,9 +65,14 @@ private func personaGID(_ attr: UnsafePointer<posix_spawnattr_t?>, _ id: gid_t) 
         posix_spawn_file_actions_addclose(&actions, fds[0]); posix_spawn_file_actions_addclose(&actions, fds[1])
         var pid: pid_t = 0
         let args = [strdup(helper), strdup("--hud"), nil]
+        let environment = [strdup("PATH=/usr/bin:/bin:/usr/sbin:/sbin"), nil]
         defer { for p in args { if let p = p { free(p) } } }
+        defer { for p in environment { if let p = p { free(p) } } }
         let code = args.withUnsafeBufferPointer { argv in
-            posix_spawn(&pid, helper, &actions, &attr, UnsafeMutablePointer(mutating: argv.baseAddress!), _NSGetEnviron().pointee)
+            environment.withUnsafeBufferPointer { envp in
+                posix_spawn(&pid, helper, &actions, &attr, UnsafeMutablePointer(mutating: argv.baseAddress!),
+                    UnsafeMutablePointer(mutating: envp.baseAddress!))
+            }
         }
         close(fds[0])
         guard code == 0 else { close(fds[1]); return "悬浮进程启动失败（\(code)），请确认TrollStore权限" }

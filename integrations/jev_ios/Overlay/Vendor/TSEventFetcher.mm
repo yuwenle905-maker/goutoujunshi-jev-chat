@@ -18,6 +18,7 @@ static NSMutableArray *_touchAry = nil;
 static NSMutableArray *_livingTouchAry = nil;
 static CFRunLoopSourceRef _source = NULL;
 static NSString *_failure = @"";
+static __weak UIWindow *_deliveryWindow = nil;
 
 static UITouch *toRemove = nil;
 static UITouch *toStationarify = nil;
@@ -51,7 +52,11 @@ static void __TSEventFetcherCallback(void *info)
     [event _addTouch:aTouch forDelayedDelivery:NO];
   }
 
-  [app sendEvent:event];
+  // All touches belong to our single HUD window. Deliver through UIWindow's
+  // public dispatcher, without UIApplication's hidden event-loop installer.
+  UIWindow *window = _deliveryWindow;
+  if (!window) { _failure = @"悬浮触摸目标窗口已释放"; return; }
+  [window sendEvent:event];
  } @catch (NSException *exception) { _failure = @"UIKit内部事件派发异常"; }
 }
 
@@ -87,6 +92,8 @@ static void __TSEventFetcherCallback(void *info)
                      inWindow:(UIWindow *)window
                        onView:(UIView *)view
 {
+  if (!window || eventId < 1 || eventId > 100) { _failure = @"悬浮触摸参数无效"; return 0; }
+  _deliveryWindow = window;
   BOOL deleted = NO;
   UITouch *touch = nil;
   BOOL needsCopy = NO;
